@@ -44,6 +44,14 @@ namespace dotless.Core.Importers
             Imports = new List<string>();
         }
 
+        internal  static string _currentDirectory;
+
+         public static string CurrentFile {
+             set {
+                 _currentDirectory = Path.GetDirectoryName(value);
+             }
+         }
+
         /// <summary>
         ///  Imports the file inside the import as a dot-less file.
         /// </summary>
@@ -54,7 +62,8 @@ namespace dotless.Core.Importers
             if (Parser == null)
                 throw new InvalidOperationException("Parser cannot be null.");
 
-            var file = _paths.Concat(new[] { import.Path }).AggregatePaths(CurrentDirectory);
+            var file = Path.GetFullPath(Path.Combine(_currentDirectory, import.Path));
+         //   var file = _paths.Concat(new[] { import.Path }).AggregatePaths(CurrentDirectory);
 
             if (!FileReader.DoesFileExist(file) && !file.EndsWith(".less"))
             {

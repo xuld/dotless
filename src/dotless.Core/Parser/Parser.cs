@@ -97,12 +97,19 @@ namespace dotless.Core.Parser
             ParsingException parsingException = null;
             Ruleset root = null;
 
+            string old = Importers.Importer._currentDirectory;
+
+            Importers.Importer.CurrentFile = fileName;
+
             try
             {
                 Tokenizer.SetupInput(input);
 
                 var parsers = new Parsers(NodeProvider);
                 root = new Root(parsers.Primary(this), e => GenerateParserError(e, fileName));
+
+                Importers.Importer._currentDirectory = old;
+
             }
             catch (ParsingException e)
             {

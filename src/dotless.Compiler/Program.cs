@@ -133,17 +133,17 @@ namespace dotless.Compiler
                 engine.ResetImports();
                 return files;
             }
-            catch (IOException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[FAILED]");
-                Console.WriteLine("Compilation failed: {0}", ex.Message);
-                Console.WriteLine(ex.StackTrace);
-                return null;
-            }
+            //catch (IOException)
+            //{
+            //    throw;
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine("[FAILED]");
+            //    Console.WriteLine("Compilation failed: {0}", ex.Message);
+            //    Console.WriteLine(ex.StackTrace);
+            //    return null;
+            //}
             finally
             {
                 Directory.SetCurrentDirectory(currentDir);
