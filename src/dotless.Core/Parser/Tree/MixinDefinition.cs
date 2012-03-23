@@ -15,13 +15,15 @@ namespace dotless.Core.Parser.Tree
         public string Name { get; set; }
         public NodeList<Rule> Params { get; set; }
         public Condition Condition { get; set; }
+        public bool Variadic { get; set; }
 
-        public MixinDefinition(string name, NodeList<Rule> parameters, NodeList rules, Condition condition)
+        public MixinDefinition(string name, NodeList<Rule> parameters, NodeList rules, Condition condition, bool variadic)
         {
             Name = name;
             Params = parameters;
             Rules = rules;
             Condition = condition;
+            Variadic = variadic;
             Selectors = new NodeList<Selector> {new Selector(new NodeList<Element>(new Element(null, name)))};
 
             _arity = Params.Count;
@@ -66,7 +68,24 @@ namespace dotless.Core.Parser.Tree
                     val = Params[i].Value;
 
                 if (val)
-                    arguments[Params[i].Name] = new Rule(Params[i].Name, val.Evaluate(env)) {Index = val.Index};
+                {
+                    Node argRuleValue;
+                    if (Params[i].Variadic)
+                    {
+                        NodeList varArgs = new NodeList();
+                        for (int j = i; j < args.Count; j++)
+                        {
+                            varArgs.Add(args[j].Value.Evaluate(env));
+                        }
+
+                        argRuleValue = (new Expression(varArgs)).Evaluate(env);
+                    }
+                    else
+                    {
+                        argRuleValue = val.Evaluate(env);
+                    }
+                    arguments[Params[i].Name] = new Rule(Params[i].Name, argRuleValue) { Index = val.Index };
+                }
                 else
                     throw new ParsingException(
                         String.Format("wrong number of arguments for {0} ({1} for {2})", Name,
@@ -107,11 +126,11 @@ namespace dotless.Core.Parser.Tree
                 {
                     var mixin = rule as MixinDefinition;
                     var parameters = Enumerable.Concat(mixin.Params, frame.Rules.Cast<Rule>());
-                    newRules.Add(new MixinDefinition(mixin.Name, new NodeList<Rule>(parameters), mixin.Rules, mixin.Condition));
+                    newRules.Add(new MixinDefinition(mixin.Name, new NodeList<Rule>(parameters), mixin.Rules, mixin.Condition, mixin.Variadic));
                 }
-                else if (rule is Directive)
+                else if (rule is Directive || rule is Media)
                 {
-                    newRules.Add(rule);
+                    newRules.Add(rule.Evaluate(context));
                 }
                 else if (rule is Ruleset)
                 {
@@ -119,12 +138,9 @@ namespace dotless.Core.Parser.Tree
 
                     context.Frames.Push(ruleset);
 
-                    var rules = new NodeList(NodeHelper.NonDestructiveExpandNodes<MixinCall>(context, ruleset.Rules)
-                        .Select(r => r.Evaluate(context)));
+                    newRules.Add(ruleset.Evaluate(context));
 
                     context.Frames.Pop();
-
-                    newRules.Add(new Ruleset(ruleset.Selectors, rules));
                 }
                 else if (rule is MixinCall)
                 {
@@ -143,10 +159,13 @@ namespace dotless.Core.Parser.Tree
         {
             var argsLength = arguments != null ? arguments.Count : 0;
 
-            if (argsLength < _required)
-              return MixinMatch.ArgumentMismatch;
-            if (_required > 0 && argsLength > _arity)
-              return MixinMatch.ArgumentMismatch;
+            if (!Variadic)
+            {
+                if (argsLength < _required)
+                    return MixinMatch.ArgumentMismatch;
+                if (argsLength > _arity)
+                    return MixinMatch.ArgumentMismatch;
+            }
 
             if (Condition)
             {
@@ -172,9 +191,17 @@ namespace dotless.Core.Parser.Tree
             return MixinMatch.Pass;
         }
 
-        protected override void AppendCSS(Env env, Context context)
+        public override void Accept(Plugins.IVisitor visitor)
         {
+            base.Accept(visitor);
 
+            Params = VisitAndReplace(Params, visitor);
+            Condition = VisitAndReplace(Condition, visitor, true);
+        }
+
+        public override void AppendCSS(Env env, Context context)
+        {
+            
         }
     }
 }

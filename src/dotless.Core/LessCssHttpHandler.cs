@@ -13,13 +13,18 @@
         public LessCssHttpHandler()
         {
             Config = new WebConfigConfigurationLoader().GetConfiguration();
-            Container = new ContainerFactory().GetContainer(Config);
+            Container = GetContainerFactory().GetContainer(Config);
+        }
+
+        protected virtual ContainerFactory GetContainerFactory()
+        {
+            return new ContainerFactory();
         }
 
         public void ProcessRequest(HttpContext context)
         {
             try {
-                string acceptEncoding = (context.Request.Headers["Accept-Encoding"] ?? "").ToUpperInvariant();
+                var acceptEncoding = (context.Request.Headers["Accept-Encoding"] ?? "").ToUpperInvariant();
 
                 if (acceptEncoding.Contains("GZIP"))
                 {

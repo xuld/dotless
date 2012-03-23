@@ -44,13 +44,9 @@
             //TODO: It would be nice to look up which units have sensible precision.
             //      e.g. do sub pixels or sub points make sense?
             //      e.g. does it make sense for anything other than em to have more precision? Radians?
-            switch (Unit)
-            {
-                case "em":
-                    return 4;
-                default:
-                    return 2;
-            }
+            //
+            // For now, follow less.js and allow any number of decimals
+            return 9;
         }
 
         public override void AppendCSS(Env env)
@@ -117,11 +113,6 @@
 
             if (n)
             {
-                if (n.Unit != Unit && Value != 0)
-                {
-                    return -1;
-                }
-
                 if (n.Value > Value)
                 {
                     return -1;

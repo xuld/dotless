@@ -889,60 +889,6 @@ namespace dotless.Test.Specs
         }
 
         [Test]
-        public void IncludesAllMatchedMixins1()
-        {
-            var input =
-                @"
-.mixin ()                          { zero: 0; }
-.mixin (@a: 1px)                   { one: 1; }
-.mixin (@a)                        { one-req: 1; }
-.mixin (@a: 1px, @b: 2px)          { two: 2; }
-.mixin (@a, @b, @c)                { three-req: 3; }
-.mixin (@a: 1px, @b: 2px, @c: 3px) { three: 3; }
-
-.zero { .mixin(); }
-
-.one { .mixin(1); }
-
-.two { .mixin(1, 2); }
-
-.three { .mixin(1, 2, 3); }
-";
-
-            var expected =
-                @"
-.zero {
-  zero: 0;
-  one: 1;
-  two: 2;
-  three: 3;
-}
-.one {
-  zero: 0;
-  one: 1;
-  one-req: 1;
-  two: 2;
-  three: 3;
-}
-.two {
-  zero: 0;
-  one: 1;
-  two: 2;
-  three: 3;
-}
-.three {
-  zero: 0;
-  one: 1;
-  two: 2;
-  three-req: 3;
-  three: 3;
-}
-";
-
-            AssertLess(input, expected);
-        }
-
-        [Test]
         public void IncludesAllMatchedMixins2()
         {
             var input =
@@ -1508,6 +1454,49 @@ input[type=""submit""].lefticon.icon24-tick.extralarge.fancy:hover {
   border: 9;
   boxer: 1, 9;
 }";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void MixinCallingSameName()
+        {
+            // attempt to reproduce bug #136
+            var input = @"
+.clearfix() {
+  // For IE 6/7 (trigger hasLayout)
+  zoom:1; 
+  // For modern browsers
+  &:before {
+    content:"""";
+    display:table;
+  }
+  &:after {
+    content:"""";
+    display:table;
+  }
+  &:after {
+    clear:both;
+  }
+}
+.clearfix { 
+  .clearfix();
+}";
+            var expected = @"
+.clearfix {
+  zoom: 1;
+}
+.clearfix:before {
+  content: """";
+  display: table;
+}
+.clearfix:after {
+  content: """";
+  display: table;
+}
+.clearfix:after {
+  clear: both;
+}
+";
             AssertLess(input, expected);
         }
     }

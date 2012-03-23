@@ -9,10 +9,10 @@ namespace dotless.Test.Specs
     {
         private static Parser GetParser()
         {
-            return GetParser(false);
+            return GetParser(false, false, false);
         }
 
-        private static Parser GetParser(bool isUrlRewritingDisabled)
+        private static Parser GetParser(bool isUrlRewritingDisabled, bool importAllFilesAsLess, bool importCssInline)
         {
             var imports = new Dictionary<string, string>();
 
@@ -53,18 +53,22 @@ namespace dotless.Test.Specs
                 @"
 @import ""sub1/second.less"";
 
+@path: ""../image.gif"";
 #first {
   background: url('../image.gif');
   background: url(../image.gif);
+  background: url(@path);
 }
 ";          
             imports["import/sub1/second.less"] =
                 @"
+@pathsep: '/';
 #second {
   background: url(../image.gif);
   background: url(image.gif);
   background: url(sub2/image.gif);
   background: url(/sub2/image.gif);
+  background: url(~""@{pathsep}sub2/image2.gif"");
 }
 ";
 
@@ -75,7 +79,21 @@ namespace dotless.Test.Specs
             imports["foo/bar.less"] = @"@import ""../lib/color.less"";";
             imports["lib/color.less"] = "body { background-color: foo; }";
 
-            return new Parser { Importer = new Importer(new DictionaryReader(imports)) { IsUrlRewritingDisabled = isUrlRewritingDisabled } };
+            imports["foourl.less"] = @"@import url(""foo/barurl.less"");";
+            imports["foo/barurl.less"] = @"@import url(""../lib/colorurl.less"");";
+            imports["lib/colorurl.less"] = "body { background-color: foo; }";
+
+            imports["something.css"] = @"body { background-color: foo; invalid ""; }";
+
+            imports["isless.css"] = @"
+@a: 9px;
+body { margin-right: @a; }";
+
+            return new Parser { 
+                Importer = new Importer(new DictionaryReader(imports)) { 
+                    IsUrlRewritingDisabled = isUrlRewritingDisabled,
+                    ImportAllFilesAsLess = importAllFilesAsLess,
+                    InlineCssFiles = importCssInline} };
         }
 
         [Test]
@@ -150,10 +168,12 @@ namespace dotless.Test.Specs
   background: url(import/sub1/image.gif);
   background: url(import/sub1/sub2/image.gif);
   background: url(/sub2/image.gif);
+  background: url(/sub2/image2.gif);
 }
 #first {
   background: url('image.gif');
   background: url(image.gif);
+  background: url(""image.gif"");
 }
 ";
 
@@ -177,14 +197,16 @@ namespace dotless.Test.Specs
   background: url(image.gif);
   background: url(sub2/image.gif);
   background: url(/sub2/image.gif);
+  background: url(/sub2/image2.gif);
 }
 #first {
   background: url('../image.gif');
   background: url(../image.gif);
+  background: url(""../image.gif"");
 }
 ";
 
-            var parser = GetParser(true);
+            var parser = GetParser(true, false, false);
 
             AssertLess(input, expected, parser);
         }
@@ -310,12 +332,53 @@ namespace dotless.Test.Specs
         }
 
         [Test]
+        public void ImportCanNavigateIntoAndOutOfSubDirectoryWithImport()
+        {
+            var input = @"@import url(""foourl.less"");";
+            var expected = @"body {
+  background-color: foo;
+}";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
         public void ImportWithMediaSpecificationsSupported()
         {
             var input = @"
 @import url(something.css) screen and (color) and (max-width: 600px);";
 
             AssertLessUnchanged(input);
+        }
+
+        [Test]
+        public void ImportInlinedWithMediaSpecificationsSupported()
+        {
+            var input = @"
+@import url(something.css) screen and (color) and (max-width: 600px);";
+
+            var expected = @"
+@media screen and (color) and (max-width: 600px) {
+  body { background-color: foo; invalid ""; }
+}
+";
+
+            AssertLess(input, expected, GetParser(false, false, true));
+        }
+
+        [Test]
+        public void CanImportCssFilesAsLess()
+        {
+            var input = @"
+@import url(""isless.css"");
+";
+            var expected = @"
+body {
+  margin-right: 9px;
+}
+";
+            AssertLess(input, expected, GetParser(false, true, false));
         }
 
         [Test]

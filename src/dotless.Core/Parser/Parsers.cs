@@ -594,19 +594,25 @@ namespace dotless.Core.Parser
             GatherAndPullComments(parser); // no store as mixin definition not output
 
             var name = match[1];
-
+            bool variadic = false;
             var parameters = new NodeList<Rule>();
             RegexMatchResult param = null;
             Node param2 = null;
             Condition condition = null;
-            Func<bool> matchParam = () => (param = parser.Tokenizer.Match(@"@[\w-]+")) ||
-                                          (param2 = Literal(parser) ||
-                                                    Keyword(parser));
-            for (var i = parser.Tokenizer.Location.Index; matchParam(); i = parser.Tokenizer.Location.Index)
+            int i;
+            while (true)
             {
-                if (param != null)
+                i = parser.Tokenizer.Location.Index;
+                if (parser.Tokenizer.CurrentChar == '.' && parser.Tokenizer.Match("\\.{3}"))
+                {
+                    variadic = true;
+                    break;
+                }
+
+                if (param = parser.Tokenizer.Match(@"@[a-zA-Z0-9_-]+"))
                 {
                     GatherAndPullComments(parser);
+
                     if (parser.Tokenizer.Match(':'))
                     {
                         GatherComments(parser);
@@ -614,13 +620,20 @@ namespace dotless.Core.Parser
 
                         parameters.Add(NodeProvider.Rule(param.Value, value, i));
                     }
+                    else if (parser.Tokenizer.Match("\\.{3}"))
+                    {
+                        variadic = true;
+                        parameters.Add(NodeProvider.Rule(param.Value, null, true, i));
+                        break;
+                    }
                     else
                         parameters.Add(NodeProvider.Rule(param.Value, null, i));
-                }
-                else
+
+                } else if (param2 = Literal(parser) || Keyword(parser))
                 {
                     parameters.Add(NodeProvider.Rule(null, param2, i));
-                }
+                } else
+                    break;
 
                 GatherAndPullComments(parser);
 
@@ -646,7 +659,7 @@ namespace dotless.Core.Parser
             PopComments();
 
             if (rules != null)
-                return NodeProvider.MixinDefinition(name, parameters, rules, condition, index);
+                return NodeProvider.MixinDefinition(name, parameters, rules, condition, variadic, index);
 
             Recall(parser, memo);
 
@@ -849,6 +862,13 @@ namespace dotless.Core.Parser
             GatherComments(parser);
             PushComments();
 
+            if (parser.Tokenizer.Match('('))
+            {
+                var sel = Entity(parser);
+                Expect(parser, ')');
+                return NodeProvider.Selector(new NodeList<Element>() { NodeProvider.Element(null, sel, index) }, index);
+            }
+
             while (true)
             {
                 e = Element(parser);
@@ -1048,7 +1068,7 @@ namespace dotless.Core.Parser
         //
         //     @charset "utf-8";
         //
-        public Directive Directive(Parser parser)
+        public Node Directive(Parser parser)
         {
             if (parser.Tokenizer.CurrentChar != '@')
                 return null;
@@ -1251,9 +1271,11 @@ namespace dotless.Core.Parser
 
             while (true)
             {
-                var feature = MediaFeature(parser);
+                Node feature = MediaFeature(parser) || Variable(parser);
                 if (!feature)
+                {
                     return null;
+                }
 
                 features.Add(feature);
 
@@ -1264,7 +1286,7 @@ namespace dotless.Core.Parser
             return NodeProvider.Value(features, null, index);
         }
 
-        public Directive Media(Parser parser)
+        public Media Media(Parser parser)
         {
             if (!parser.Tokenizer.Match("@media"))
                 return null;
@@ -1278,7 +1300,7 @@ namespace dotless.Core.Parser
             var rules = Expect(Block(parser), "@media block with unrecognised format", parser);
 
             rules.PreComments = preRulesComments;
-            return NodeProvider.Directive("@media", rules, features, index);
+            return NodeProvider.Media(rules, features, index);
         }
 
         public Directive KeyFrameBlock(Parser parser, string name, string identifier, int index)

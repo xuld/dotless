@@ -5,14 +5,44 @@ namespace dotless.Core.Parser.Tree
     using Infrastructure;
     using Infrastructure.Nodes;
     using Utils;
+    using dotless.Core.Exceptions;
 
     public class Import : Directive
     {
+        /// <summary>
+        ///  The importer to use to import the 
+        /// </summary>
         public IImporter Importer { get; set; }
+
+        /// <summary>
+        ///  The path to this import
+        /// </summary>
         public string Path { get; set; }
+
+        /// <summary>
+        ///  The original path node
+        /// </summary>
         protected Node OriginalPath { get; set; }
-        protected bool Css { get; set; }
+
+        /// <summary>
+        ///  The inner root - if the action is ImportLess
+        /// </summary>
         public Ruleset InnerRoot { get; set; }
+
+        /// <summary>
+        ///  The inner content - if the action is ImportCss
+        /// </summary>
+        public string InnerContent { get; set; }
+
+        /// <summary>
+        ///  The media features (if present)
+        /// </summary>
+        public Node Features { get; set; }
+
+        /// <summary>
+        /// The action to perform with this node
+        /// </summary>
+        protected ImportAction ImportAction { get; set; }
 
         public Import(Quoted path, IImporter importer, Value features)
             : this(path.Value, importer, features)
@@ -21,7 +51,7 @@ namespace dotless.Core.Parser.Tree
         }
 
         public Import(Url path, IImporter importer, Value features)
-            : this(path.GetUrl(), importer, features)
+            : this(path.GetUnadjustedUrl(), importer, features)
         {
             OriginalPath = path;
         }
@@ -35,31 +65,29 @@ namespace dotless.Core.Parser.Tree
         {
             OriginalPath = originalPath;
             Features = features;
-            Css = true;
+            ImportAction = ImportAction.LeaveImport;
         }
 
         private Import(string path, IImporter importer, Value features)
         {
+            if (path == null)
+                throw new ParserException("Imports do not allow expressions");
+
             Importer = importer;
             Path = path;
             Features = features;
 
-            if (path.EndsWith(".css"))
-            {
-                Css = true;
-            } else
-            {
-                Css = !Importer.Import(this); // it is assumed to be css if it cannot be found as less
-
-                if (Css && path.EndsWith(".less"))
-                {
-                    throw new FileNotFoundException("You are importing a file ending in .less that cannot be found.", path);
-                }
-            }
+            ImportAction = Importer.Import(this); // it is assumed to be css if it cannot be found as less
         }
 
-        protected override void AppendCSS(Env env, Context context)
+        public override void AppendCSS(Env env, Context context)
         {
+            if (ImportAction == ImportAction.ImportCss)
+            {
+                env.Output.Append(InnerContent);
+                return;
+            }
+
             env.Output.Append("@import ")
                 .Append(OriginalPath.ToCSS(env));
 
@@ -77,6 +105,16 @@ namespace dotless.Core.Parser.Tree
             }
         }
 
+        public override void Accept(Plugins.IVisitor visitor)
+        {
+            Features = VisitAndReplace(Features, visitor, true);
+
+            if (ImportAction == ImportAction.ImportLess)
+            {
+                InnerRoot = VisitAndReplace(InnerRoot, visitor);
+            }
+        }
+
         public override Node Evaluate(Env env)
         {
             Node features = null;
@@ -84,8 +122,16 @@ namespace dotless.Core.Parser.Tree
             if (Features)
                 features = Features.Evaluate(env);
 
-            if (Css)
+            if (ImportAction == ImportAction.LeaveImport)
                 return new Import(OriginalPath, features);
+
+            if (ImportAction == ImportAction.ImportCss)
+            {
+                var importCss = new Import(OriginalPath, null) { ImportAction = ImportAction.ImportCss, InnerContent = InnerContent };
+                if (features)
+                    return new Media(features, new NodeList() { importCss });
+                return importCss;
+            }
 
             NodeHelper.ExpandNodes<Import>(env, InnerRoot.Rules);
 
@@ -93,7 +139,7 @@ namespace dotless.Core.Parser.Tree
 
             if (features)
             {
-                return new Directive("@media", features, rulesList);
+                return new Media(features, rulesList);
             }
 
             return rulesList;
