@@ -65,6 +65,11 @@ namespace dotless.Core.Importers
             var file = Path.GetFullPath(Path.Combine(_currentDirectory, import.Path));
          //   var file = _paths.Concat(new[] { import.Path }).AggregatePaths(CurrentDirectory);
 
+            if(Imports.Contains(file)) {
+                import.InnerRoot = Ruleset.Empty;
+                return true;
+            }
+
             if (!FileReader.DoesFileExist(file) && !file.EndsWith(".less"))
             {
                 file = file + ".less";
@@ -91,7 +96,7 @@ namespace dotless.Core.Importers
             }
             finally
             {
-                _paths.RemoveAt(_paths.Count - 1);
+                //  _paths.RemoveAt(_paths.Count - 1);
             }
 
             return true;
