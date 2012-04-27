@@ -208,27 +208,27 @@ namespace dotless.Compiler
 
         private static void WriteHelp()
         {
-            Console.WriteLine("dotless Compiler {0}", GetAssemblyVersion());
-            Console.WriteLine("\tCompiles .less files to css files.");
+            Console.WriteLine("dotless Compiler {0} xuld 汉化版", GetAssemblyVersion());
+            Console.WriteLine("\t编译 .less 文件到 css 文件。");
             Console.WriteLine();
-            Console.WriteLine("Usage: dotless.Compiler.exe [-switches] <inputfile> [outputfile]");
-            Console.WriteLine("\tSwitches:");
-            Console.WriteLine("\t\t-m --minify - Output CSS will be compressed");
-            Console.WriteLine("\t\t-w --watch - Watches .less file for changes");
-            Console.WriteLine("\t\t-h --help - Displays this dialog");
-            Console.WriteLine("\t\t-r --disable-url-rewriting - Disables changing urls in imported files");
-            Console.WriteLine("\t\t-a --import-all-less - treats every import as less even if ending in .css");
-            Console.WriteLine("\t\t-c --inline-css - Inlines CSS file imports into the output");
-            Console.WriteLine("\t\t-DKey=Value - prefixes variable to the less");
-            Console.WriteLine("\t\t-l --listplugins - Lists the plugins available and options");
-            Console.WriteLine("\t\t-p: --plugin:pluginName[:option=value[,option=value...]] - adds the named plugin to dotless with the supplied options");
-            Console.WriteLine("\tinputfile: .less file dotless should compile to CSS");
-            Console.WriteLine("\toutputfile: (optional) desired filename for .css output");
-            Console.WriteLine("\t\t Defaults to inputfile.css");
+            Console.WriteLine("用法: dotless.Compiler.exe [-开关] <输入文件> [输出文件]");
+            Console.WriteLine("\t开关:");
+            Console.WriteLine("\t\t-m --minify - 压缩输出的文件");
+            Console.WriteLine("\t\t-w --watch - 监听 .less 文件的修改");
+            Console.WriteLine("\t\t-h --help - 显示本帮助信息");
+            Console.WriteLine("\t\t-r --disable-url-rewriting - 禁止更改CSS中的路径");
+            Console.WriteLine("\t\t-a --import-all-less - 将所有的 @import 都解析为 .less 导入，即使是 .css 文件");
+            Console.WriteLine("\t\t-c --inline-css - 内联导入的CSS文件");
+            Console.WriteLine("\t\t-键=值 - 预定义的变量");
+            Console.WriteLine("\t\t-l --listplugins - 列出可用的插件和选项");
+            Console.WriteLine("\t\t-p: --plugin:插件名[:option=value[,option=value...]] - 使用指定的选项载入插件");
+            Console.WriteLine("\tinputfile: 需要编译成 CSS 文件的 .less 源文件");
+            Console.WriteLine("\toutputfile: (可选的) 生成的 CSS 文件位置");
+            Console.WriteLine("\t\t 默认为 inputfile.css");
             Console.WriteLine("");
-            Console.WriteLine("Example:");
+            Console.WriteLine("示例:");
             Console.WriteLine("\tdotless.Compiler.exe -m -w \"-p:Rtl:forceRtlTransform=true,onlyReversePrefixedRules=true\"");
-            Console.WriteLine("\t\tMinify, Watch and add the Rtl plugin");
+            Console.WriteLine("\t\t压缩、 监听文件，并且添加 Rtl 插件。");
         }
 
         private static CompilerConfiguration GetConfigurationFromArguments(List<string> arguments)

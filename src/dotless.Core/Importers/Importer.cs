@@ -66,6 +66,14 @@ namespace dotless.Core.Importers
             return new List<string>(_paths);
         }
 
+        internal static string _currentDirectory;
+
+        public static string CurrentFile {
+            set {
+                _currentDirectory = Path.GetDirectoryName(value);
+            }
+        }
+
         /// <summary>
         ///  Imports the file inside the import as a dot-less file.
         /// </summary>
@@ -73,8 +81,8 @@ namespace dotless.Core.Importers
         /// <returns> The action for the import node to process</returns>
         public virtual ImportAction Import(Import import)
         {
-            var file = GetAdjustedFilePath(import.Path, _paths);
-
+          //  var file = GetAdjustedFilePath(import.Path, _paths);
+            var file = Path.GetFullPath(Path.Combine(_currentDirectory, import.Path));
             if (!ImportAllFilesAsLess && import.Path.EndsWith(".css"))
             {
                 if (InlineCssFiles && ImportCssFileContents(file, import))
@@ -90,7 +98,7 @@ namespace dotless.Core.Importers
             {
                 if (import.Path.EndsWith(".less", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    throw new FileNotFoundException("You are importing a file ending in .less that cannot be found.", import.Path);
+                    throw new FileNotFoundException("You are importing a file ending in .less that cannot be found: " + import.Path, import.Path);
                 }
                 return ImportAction.LeaveImport;
             }
@@ -111,6 +119,15 @@ namespace dotless.Core.Importers
         /// </summary>
         protected bool ImportLessFile(string file, Import import)
         {
+
+            if(Imports.Contains(file)) {
+                import.InnerRoot = Ruleset.Empty;
+                return true;
+            }
+
+
+
+
             if (!FileReader.DoesFileExist(file) && !file.EndsWith(".less"))
             {
                 file = file + ".less";
@@ -137,7 +154,7 @@ namespace dotless.Core.Importers
             }
             finally
             {
-                _paths.RemoveAt(_paths.Count - 1);
+              //  _paths.RemoveAt(_paths.Count - 1);
             }
 
             return true;

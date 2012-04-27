@@ -8,8 +8,10 @@ namespace dotless.Core.Parser.Tree
     using Utils;
     using Plugins;
 
-    public class Ruleset : Node
-    {
+    public class Ruleset : Node {
+
+        public readonly static Ruleset Empty = new Ruleset(new NodeList<Selector>(), new NodeList());
+
         public NodeList<Selector> Selectors { get; set; }
         public NodeList Rules { get; set; }
         public bool Evaluated { get; protected set; }

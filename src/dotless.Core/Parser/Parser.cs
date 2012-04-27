@@ -96,10 +96,10 @@ namespace dotless.Core.Parser
         {
             ParsingException parsingException = null;
             Ruleset root = null;
+/////////
+       string old = Importers.Importer._currentDirectory;
 
-            string old = Importers.Importer._currentDirectory;
-
-            Importers.Importer.CurrentFile = fileName;
+       Importers.Importer.CurrentFile = fileName;
 
             try
             {
@@ -108,7 +108,7 @@ namespace dotless.Core.Parser
                 var parsers = new Parsers(NodeProvider);
                 root = new Root(parsers.Primary(this), e => GenerateParserError(e, fileName));
 
-                Importers.Importer._currentDirectory = old;
+             Importers.Importer._currentDirectory = old;
 
             }
             catch (ParsingException e)
