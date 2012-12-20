@@ -22,6 +22,7 @@ namespace dotless.Core.Parser
         private int _inputLength;
         private readonly string _commentRegEx = @"(//[^\n]*|(/\*(.|[\r\n])*?\*/))";
         private readonly string _quotedRegEx = @"(""((?:[^""\\\r\n]|\\.)*)""|'((?:[^'\\\r\n]|\\.)*)')";
+        private string _fileName;
 
         //Increasing throughput through tracing of Regex
         private IDictionary<string, Regex> regexCache = new Dictionary<string, Regex>();
@@ -31,8 +32,9 @@ namespace dotless.Core.Parser
             Optimization = optimization;
         }
 
-        public void SetupInput(string input)
+        public void SetupInput(string input, string fileName)
         {
+            _fileName = fileName;
             _i = _j = _current = 0;
             _chunks = new List<Chunk>();
             _input = input.Replace("\r\n", "\n");
@@ -47,12 +49,13 @@ namespace dotless.Core.Parser
                 _chunks.Add(new Chunk(_input));
             else
             {
-                var skip = new Regex(@"\G[^\""'{}/\\]+");
+                var skip = new Regex(@"\G(@\{[a-zA-Z0-9_-]+\}|[^\""'{}/\\\(\)]+)");
 
                 var comment = GetRegex(this._commentRegEx, RegexOptions.None);
                 var quotedstring = GetRegex(this._quotedRegEx, RegexOptions.None);
                 var level = 0;
                 var lastBlock = 0;
+                var inParam = false;
                 
                 int i = 0;
                 while(i < _inputLength)
@@ -70,7 +73,7 @@ namespace dotless.Core.Parser
                     if(i < _inputLength - 1 && c == '/')
                     {
                         var cc = _input[i + 1];
-                        if(cc == '/' || cc == '*')
+                        if ((!inParam && cc == '/') || cc == '*')
                         {
                             match = comment.Match(_input, i);
                             if(match.Success)
@@ -80,7 +83,7 @@ namespace dotless.Core.Parser
                                 continue;
                             } else
                             {
-                                throw new ParsingException("Missing closing comment", i);
+                                throw new ParsingException("Missing closing comment", GetNodeLocation(i));
                             }
                         }
                     }
@@ -95,25 +98,33 @@ namespace dotless.Core.Parser
                             continue;
                         } else
                         {
-                            throw new ParsingException(string.Format("Missing closing quote ({0})", c), i);
+                            throw new ParsingException(string.Format("Missing closing quote ({0})", c), GetNodeLocation(i));
                         }
                     }
                     
                     // we are not in a quoted string or comment - process '{' level
-                    if(c == '{')
+                    if(!inParam && c == '{')
                     {
                         level++;
                         lastBlock = i;
-                    } else if(c == '}')
+                    }
+                    else if (!inParam && c == '}')
                     {
                         level--;
                         
                         if(level < 0)
-                            throw new ParsingException("Unexpected '}'", i);
+                            throw new ParsingException("Unexpected '}'", GetNodeLocation(i));
                         
                         Chunk.Append(c, _chunks, true);
                         i++;
                         continue;
+                    } if (c == '(')
+                    {
+                        inParam = true;
+                    }
+                    else if (c == ')')
+                    {
+                        inParam = false;
                     }
                     
                     Chunk.Append(c, _chunks);
@@ -121,7 +132,7 @@ namespace dotless.Core.Parser
                 }
                 
                 if(level > 0)
-                    throw new ParsingException("Missing closing '}'", lastBlock);
+                    throw new ParsingException("Missing closing '}'", GetNodeLocation(lastBlock));
 
                 _input =  Chunk.CommitAll(_chunks);
 
@@ -228,9 +239,11 @@ namespace dotless.Core.Parser
 
             if (_input[_i] == tok)
             {
+                var index = _i;
+
                 Advance(1);
 
-                return new CharMatchResult(tok);
+                return new CharMatchResult(tok) { Location = GetNodeLocation(index) };
             }
 
             return null;
@@ -259,9 +272,11 @@ namespace dotless.Core.Parser
             if (!match.Success)
                 return null;
 
+            var index = _i;
+
             Advance(match.Length);
 
-            return new RegexMatchResult(match);
+            return new RegexMatchResult(match) {Location = GetNodeLocation(index)};
         }
 
         // Match a string, but include the possibility of matching quoted and comments
@@ -427,27 +442,14 @@ namespace dotless.Core.Parser
             }
         }
 
-        public Zone GetZone(string error, int position, int call, string fileName)
+        public NodeLocation GetNodeLocation(int index)
         {
-            var first = _input.Substring(0, System.Math.Min(position, _input.Length));
+            return new NodeLocation(index, this._input, this._fileName);
+        }
 
-            var start = first.LastIndexOf('\n') + 1;
-            var line = first.Count(c => c == '\n');
-
-            var lines = _input.Split('\n');
-
-            var callLine = _input.Substring(0, call).Count(c => c == '\n');
-
-            return new Zone
-                       {
-                           FileName = fileName,
-                           Message = error,
-                           CallLine = callLine + 1,
-                           CallExtract = callLine <= 0 ? null : new Extract(lines, callLine),
-                           LineNumber = line + 1,
-                           Position = position - start,
-                           Extract = new Extract(lines, line),
-                       };
+        public NodeLocation GetNodeLocation()
+        {
+            return GetNodeLocation(this.Location.Index);
         }
 
         private enum ChunkType
@@ -542,31 +544,6 @@ namespace dotless.Core.Parser
                 return all.ToString();
             }
         }
-    }
-
-    public class Zone
-    {
-        public int LineNumber { get; set; }
-        public int Position { get; set; }
-        public Extract Extract { get; set; }
-        public string Message { get; set; }
-        public string FileName { get; set; }
-        public int CallLine { get; set; }
-        public Extract CallExtract { get; set; }
-    }
-
-    public class Extract
-    {
-        public Extract(string[] lines, int line)
-        {
-            Before = line > 0 ? lines[line - 1] : "/beginning of file";
-            Line = lines[line];
-            After = line + 1 < lines.Length ? lines[line + 1] : "/end of file";
-        }
-
-        public string After { get; set; }
-        public string Before { get; set; }
-        public string Line { get; set; }
     }
 
     public class Location 

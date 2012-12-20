@@ -3,8 +3,10 @@ namespace dotless.Test
     using System.Collections.Specialized;
     using System.Web;
     using Core.Abstractions;
+    using Core.configuration;
     using Moq;
     using NUnit.Framework;
+    using System.IO;
 
     public class HttpFixtureBase
     {
@@ -15,8 +17,11 @@ namespace dotless.Test
         protected Mock<HttpServerUtilityBase> HttpServer { get; set; }
         protected Mock<HttpCachePolicyBase> HttpCache { get; set; }
         protected Mock<IHttp> Http { get; set; }
+        protected Mock<IConfigurationManager> ConfigManager { get; set; }
         protected NameValueCollection QueryString { get; set; }
         protected NameValueCollection Form { get; set; }
+        protected NameValueCollection Headers { get; set; }
+        protected DotlessConfiguration Config { get; set; }
 
         [SetUp]
         public void BaseSetup()
@@ -28,19 +33,27 @@ namespace dotless.Test
             HttpServer = new Mock<HttpServerUtilityBase>();
             HttpCache = new Mock<HttpCachePolicyBase>();
             Http = new Mock<IHttp>();
+            ConfigManager = new Mock<IConfigurationManager>();
 
             QueryString = new NameValueCollection();
             Form = new NameValueCollection();
+            Headers = new NameValueCollection();
+            Config = DotlessConfiguration.GetDefaultWeb();
 
             Http.SetupGet(h => h.Context).Returns(HttpContext.Object);
+
+            ConfigManager.Setup(c => c.GetSection<DotlessConfiguration>(It.IsRegex("^dotless$"))).Returns(Config);
+            DotlessConfiguration.ConfigurationManager = ConfigManager.Object;
 
             HttpContext.SetupGet(c => c.Request).Returns(HttpRequest.Object);
             HttpContext.SetupGet(c => c.Response).Returns(HttpResponse.Object);
             HttpContext.SetupGet(c => c.Server).Returns(HttpServer.Object);
             HttpContext.SetupGet(c => c.Session).Returns(HttpSession.Object);
             HttpResponse.SetupGet(r => r.Cache).Returns(HttpCache.Object);
+            HttpResponse.SetupGet(r => r.Filter).Returns(new MemoryStream(new byte[1000], true));
             HttpRequest.SetupGet(r => r.QueryString).Returns(QueryString);
             HttpRequest.SetupGet(r => r.Form).Returns(Form);
+            HttpRequest.SetupGet(r => r.Headers).Returns(Headers);
         }
     }
 }

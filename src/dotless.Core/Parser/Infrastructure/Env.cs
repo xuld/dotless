@@ -9,6 +9,7 @@
     using Nodes;
     using Plugins;
     using Tree;
+    using dotless.Core.Loggers;
 
     public class Env
     {
@@ -17,10 +18,15 @@
 
         public Stack<Ruleset> Frames { get; protected set; }
         public bool Compress { get; set; }
+        public bool Debug { get; set; }
         public Node Rule { get; set; }
+        public ILogger Logger { get; set; }
         public Output Output { get; private set; }
         public Stack<Media> MediaPath { get; private set; }
         public List<Media> MediaBlocks { get; private set; }
+        public bool DisableVariableRedefines { get; set; }
+        public bool KeepFirstSpecialComment { get; set; }
+        public bool IsFirstSpecialCommentOutput { get; set; }
 
         public Env() : this(null, null)
         {
@@ -32,6 +38,7 @@
             Output = new Output(this);
             MediaPath = new Stack<Media>();
             MediaBlocks = new List<Media>();
+            Logger = new NullLogger(LogLevel.Info);
 
             _plugins = new List<IPlugin>();
             _functionTypes = functions ?? new Dictionary<string, Type>();
@@ -45,7 +52,7 @@
         /// </summary>
         public virtual Env CreateChildEnv(Stack<Ruleset> frames)
         {
-            return new Env(frames, _functionTypes);
+            return new Env(frames, _functionTypes) { Debug = Debug, Compress = Compress, DisableVariableRedefines = DisableVariableRedefines };
         }
 
         /// <summary>
@@ -76,12 +83,37 @@
             }
         }
 
+        /// <summary>
+        ///  All the visitor plugins to use
+        /// </summary>
         public IEnumerable<IVisitorPlugin> VisitorPlugins
         {
             get
             {
                 return _plugins.OfType<IVisitorPlugin>();
             }
+        }
+
+        /// <summary>
+        ///  Returns whether the comment should be silent
+        /// </summary>
+        /// <param name="isDoubleStarComment"></param>
+        /// <returns></returns>
+        public bool IsCommentSilent(bool isValidCss, bool isCssHack, bool isSpecialComment)
+        {
+            if (!isValidCss)
+                return true;
+
+            if (isCssHack)
+                return false;
+
+            if (Compress && KeepFirstSpecialComment && !IsFirstSpecialCommentOutput && isSpecialComment)
+            {
+                IsFirstSpecialCommentOutput = true;
+                return false;
+            }
+
+            return Compress;
         }
 
         /// <summary>
@@ -100,7 +132,7 @@
             var previousNode = rule;
             foreach (var frame in Frames)
             {
-                var v = frame.Variable(name, previousNode);
+                var v = frame.Variable(name, DisableVariableRedefines ? null : previousNode);
                 if (v)
                     return v;
                 previousNode = frame;
@@ -171,12 +203,16 @@
         /// </summary>
         public virtual Function GetFunction(string name)
         {
+            Function function = null;
             name = name.ToLowerInvariant();
 
             if (_functionTypes.ContainsKey(name))
-                return (Function) Activator.CreateInstance(_functionTypes[name]);
+            {
+                function = (Function)Activator.CreateInstance(_functionTypes[name]);
+                function.Logger = Logger;
+            }
 
-            return null;
+            return function;
         }
 
         private static IEnumerable<KeyValuePair<string, Type>> GetFunctionNames(Type t)

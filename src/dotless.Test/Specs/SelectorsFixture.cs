@@ -107,6 +107,262 @@ p a span {
         }
 
         [Test]
+        public void ParentSelector4()
+        {
+            var input =
+                @"
+.foo {
+  .bar, .baz {
+    .qux& {
+      display:inline;
+    }
+  }
+}
+";
+
+            var expected =
+                @"
+.qux.foo .bar,
+.qux.foo .baz {
+  display: inline;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelector5()
+        {
+            //https://github.com/cloudhead/less.js/issues/774
+            var input =
+                @"
+.b {
+ &.c {
+  .a& {
+   color: red;
+  }
+ }
+}
+";
+
+            var expected =
+                @"
+.a.b.c {
+  color: red;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelector6()
+        {
+            // https://github.com/cloudhead/less.js/issues/299
+
+            var input =
+                @"
+.margin_between(@above, @below) {
+     * + & { margin-top: @above; }
+     legend + & { margin-top: 0; }
+     & + * { margin-top: @below; }
+}
+h1 { .margin_between(25px, 10px); }
+h2 { .margin_between(20px, 8px); }
+h3 { .margin_between(15px, 5px); }";
+
+            var expected =
+                @"
+* + h1 {
+  margin-top: 25px;
+}
+legend + h1 {
+  margin-top: 0;
+}
+h1 + * {
+  margin-top: 10px;
+}
+* + h2 {
+  margin-top: 20px;
+}
+legend + h2 {
+  margin-top: 0;
+}
+h2 + * {
+  margin-top: 8px;
+}
+* + h3 {
+  margin-top: 15px;
+}
+legend + h3 {
+  margin-top: 0;
+}
+h3 + * {
+  margin-top: 5px;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelector7()
+        {
+            // https://github.com/cloudhead/less.js/issues/749
+
+            var input =
+                @"
+.b {
+ .c & {
+  &.a {
+   color: red;
+  }
+ }
+}
+";
+
+            var expected =
+                @"
+.c .b.a {
+  color: red;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelector8()
+        {
+            var input = @"
+.p {
+  .foo &.bar {
+    color: red;
+  }
+}
+";
+            var expected = @"
+.foo .p.bar {
+  color: red;
+}
+";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelector9()
+        {
+            var input = @"
+.p {
+  .foo&.bar {
+    color: red;
+  }
+}
+";
+            var expected = @"
+.foo.p.bar {
+  color: red;
+}
+";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelectorCombinators()
+        {
+            // Note: https://github.com/dotless/dotless/issues/171
+
+            var input =
+                @"
+.foo {
+  .foo + & {
+    background: amber;
+  }
+  & + & {
+    background: amber;
+  }
+}
+";
+
+            var expected =
+                @"
+.foo + .foo {
+  background: amber;
+}
+.foo + .foo {
+  background: amber;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelectorMultiplied()
+        {
+            var input =
+                @"
+.foo, .bar {
+  & + & {
+    background: amber;
+  }
+}
+";
+
+            var expected =
+                @"
+.foo + .foo,
+.foo + .bar,
+.bar + .foo,
+.bar + .bar {
+  background: amber;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelectorMultipliedDouble()
+        {
+            var input =
+                @"
+.foo, .bar {
+  a, b {
+    & > & {
+      background: amber;
+    }
+  }
+}
+";
+
+            var expected =
+                @"
+.foo a > .foo a,
+.foo a > .bar a,
+.foo a > .foo b,
+.foo a > .bar b,
+.bar a > .foo a,
+.bar a > .bar a,
+.bar a > .foo b,
+.bar a > .bar b,
+.foo b > .foo a,
+.foo b > .bar a,
+.foo b > .foo b,
+.foo b > .bar b,
+.bar b > .foo a,
+.bar b > .bar a,
+.bar b > .foo b,
+.bar b > .bar b {
+  background: amber;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
         public void IdSelectors()
         {
             var input =
@@ -269,6 +525,57 @@ a:nth-child(2) {
         }
 
         [Test]
+        public void ParentSelectorWhenNoParentExists1()
+        {
+            //comes up in bootstrap
+            var input = @"
+.placeholder(@color) {
+  &:-moz-placeholder {
+    color: @color;
+  }
+  &:-ms-input-placeholder {
+    color: @color;
+  }
+  &::-webkit-input-placeholder {
+    color: @color;
+  }
+}
+.placeholder(red);
+";
+            var expected = @"
+:-moz-placeholder {
+  color: red;
+}
+:-ms-input-placeholder {
+  color: red;
+}
+::-webkit-input-placeholder {
+  color: red;
+}
+";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ParentSelectorWhenNoParentExists2()
+        {
+            var input = @"
+.placeholder(@color) {
+  .foo &.bar {
+    color: @color;
+  }
+}
+.placeholder(red);
+";
+            var expected = @"
+.foo .bar {
+  color: red;
+}
+";
+            AssertLess(input, expected);
+        }
+
+        [Test]
         public void VariableSelector()
         {
             var input = @"
@@ -307,6 +614,57 @@ a:nth-child(2) {
 }
 ";
             AssertLess(input, expected);
+        }
+
+        [Test]
+        public void AttributeCharacterTest()
+        {
+            var input = @"
+.item[data-cra_zy-attr1b-ut3=bold] {
+  foo: bar;
+}";
+            AssertLessUnchanged(input);
+        }
+
+        [Test]
+        public void SelectorInterpolation1()
+        {
+            var input = @"
+@num: 2;
+:nth-child(@{num}):nth-child(@num) {
+  foo: bar;
+}";
+            var expected = @"
+:nth-child(2):nth-child(2) {
+  foo: bar;
+}";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void SelectorInterpolation2()
+        {
+            var input = @"
+@theme: blood;
+.@{theme} {
+  foo: bar;
+}";
+            var expected = @"
+.blood {
+  foo: bar;
+}";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void EscapedSelector()
+        {
+            var input = @"
+#odd\:id,
+[odd\.attr] {
+  foo: bar;
+}";
+            AssertLessUnchanged(input);
         }
     }
 }

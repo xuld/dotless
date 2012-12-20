@@ -5,6 +5,14 @@ namespace dotless.Test.Specs.Functions
     public class GreenFixture : SpecFixtureBase
     {
         [Test]
+        public void TestGreenInfo()
+        {
+            var greenInfo1 = "green(color, number) is not supported by less.js, so this will work but not compile with other less implementations.";
+
+            AssertExpressionLogMessage(greenInfo1, "green(#123456, 10)");
+        }
+
+        [Test]
         public void TestGreen()
         {
             AssertExpression("52", "green(#123456)");

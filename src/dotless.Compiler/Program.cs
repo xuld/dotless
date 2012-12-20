@@ -30,20 +30,37 @@ namespace dotless.Compiler
                 return -1;
             }
 
-            var inputDirectoryPath = Path.GetDirectoryName(arguments[0]);
-            if(string.IsNullOrEmpty(inputDirectoryPath)) inputDirectoryPath = "." + Path.DirectorySeparatorChar;
-            var inputFilePattern = Path.GetFileName(arguments[0]);
+            string inputDirectoryPath, inputFilePattern;
+
+            if (Directory.Exists(arguments[0]))
+            {
+                inputDirectoryPath = arguments[0];
+                inputFilePattern = "*.less";
+            }
+            else
+            {
+                inputDirectoryPath = Path.GetDirectoryName(arguments[0]);
+                if (string.IsNullOrEmpty(inputDirectoryPath)) inputDirectoryPath = "." + Path.DirectorySeparatorChar;
+                inputFilePattern = Path.GetFileName(arguments[0]);
+                if (!Path.HasExtension(inputFilePattern)) inputFilePattern = Path.ChangeExtension(inputFilePattern, "less");
+            }
+
             var outputDirectoryPath = string.Empty;
             var outputFilename = string.Empty;
-
-            if (string.IsNullOrEmpty(inputFilePattern)) inputFilePattern = "*.less";
-            if (!Path.HasExtension(inputFilePattern)) inputFilePattern = Path.ChangeExtension(inputFilePattern, "less");
-
             if (arguments.Count > 1)
             {
-                outputDirectoryPath = Path.GetDirectoryName(arguments[1]);
-                outputFilename = Path.GetFileName(arguments[1]);
-                outputFilename = Path.ChangeExtension(outputFilename, "css");
+                if (Directory.Exists(arguments[1]))
+                {
+                    outputDirectoryPath = arguments[1];
+                }
+                else
+                {
+                    outputDirectoryPath = Path.GetDirectoryName(arguments[1]);
+                    outputFilename = Path.GetFileName(arguments[1]);
+
+                    if (!Path.HasExtension(outputFilename))
+                        outputFilename = Path.ChangeExtension(outputFilename, "css");
+                }
             }
             
             if (string.IsNullOrEmpty(outputDirectoryPath))
@@ -98,8 +115,15 @@ namespace dotless.Compiler
                         watcher.SetupWatchers(files, compilationDelegate);
                 }
 
-                if (configuration.Watch) 
+                if (configuration.Watch)
+                {
                     WriteAbortInstructions();
+                }
+                else if (filenames.Count() == 0)
+                {
+                    Console.WriteLine("No files found matching pattern '{0}'", inputFilePattern);
+                    return -1;
+                }
 
                 while (watcher.Watch && Console.ReadKey(true).Key != ConsoleKey.Enter) 
                 {
@@ -124,12 +148,23 @@ namespace dotless.Compiler
             {
                 Console.WriteLine("{0} -> {1}", inputFilePath, outputFilePath);
                 var directoryPath = Path.GetDirectoryName(inputFilePath);
-                var source = new dotless.Core.Input.FileReader().GetFileContents(inputFilePath);
+                var fileReader = new dotless.Core.Input.FileReader();
+                var source = fileReader.GetFileContents(inputFilePath);
                 Directory.SetCurrentDirectory(directoryPath);
                 var css = engine.TransformToCss(source, inputFilePath);
 
                 File.WriteAllText(outputFilePath, css);
-                Console.WriteLine("[Done]");
+
+                if (!engine.LastTransformationSuccessful)
+                {
+                    returnCode = -5;
+                    Console.WriteLine();
+                    Console.WriteLine("[Done - Failed]");
+                }
+                else
+                {
+                    Console.WriteLine("[Done]");
+                }
 
                 var files = new List<string>();
                 files.Add(inputFilePath);
@@ -138,6 +173,7 @@ namespace dotless.Compiler
                 engine.ResetImports();
                 return files;
             }
+<<<<<<< HEAD
             //catch (IOException)
             //{
             //    throw;
@@ -149,6 +185,21 @@ namespace dotless.Compiler
             //    Console.WriteLine(ex.StackTrace);
             //    return null;
             //}
+=======
+            catch (IOException)
+            {
+                returnCode = -2;
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[FAILED]");
+                Console.WriteLine("Compilation failed: {0}", ex.Message);
+                Console.WriteLine(ex.StackTrace);
+                returnCode = -3;
+                return null;
+            }
+>>>>>>> 57986d4e1b45102058e055468254b85e34a41e98
             finally
             {
                 Directory.SetCurrentDirectory(currentDir);
@@ -216,6 +267,7 @@ namespace dotless.Compiler
             Console.WriteLine("dotless Compiler {0} xuld 汉化版", GetAssemblyVersion());
             Console.WriteLine("\t编译 .less 文件到 css 文件。");
             Console.WriteLine();
+<<<<<<< HEAD
             Console.WriteLine("用法: dotless.Compiler.exe [-开关] <输入文件> [输出文件]");
             Console.WriteLine("\t开关:");
             Console.WriteLine("\t\t-m --minify - 压缩输出的文件");
@@ -230,6 +282,25 @@ namespace dotless.Compiler
             Console.WriteLine("\tinputfile: 需要编译成 CSS 文件的 .less 源文件");
             Console.WriteLine("\toutputfile: (可选的) 生成的 CSS 文件位置");
             Console.WriteLine("\t\t 默认为 inputfile.css");
+=======
+            Console.WriteLine("Usage: dotless.Compiler.exe [-switches] <inputfile> [outputfile]");
+            Console.WriteLine("\tSwitches:");
+            Console.WriteLine("\t\t-m --minify - Output CSS will be compressed");
+            Console.WriteLine("\t\t-k --keep-first-comment - Keeps the first comment begninning /** when minified");
+            Console.WriteLine("\t\t-d --debug  - Print helpful debug comments in output (not compatible with -m)");
+            Console.WriteLine("\t\t-w --watch  - Watches .less file for changes");
+            Console.WriteLine("\t\t-h --help   - Displays this dialog");
+            Console.WriteLine("\t\t-r --disable-url-rewriting - Disables changing urls in imported files");
+            Console.WriteLine("\t\t-a --import-all-less - treats every import as less even if ending in .css");
+            Console.WriteLine("\t\t-c --inline-css - Inlines CSS file imports into the output");
+            Console.WriteLine("\t\t-v --disable-variable-redefines - Makes variables behave more like less.js, so the last variable definition is used");
+            Console.WriteLine("\t\t-DKey=Value - prefixes variable to the less");
+            Console.WriteLine("\t\t-l --listplugins - Lists the plugins available and options");
+            Console.WriteLine("\t\t-p: --plugin:pluginName[:option=value[,option=value...]] - adds the named plugin to dotless with the supplied options");
+            Console.WriteLine("\tinputfile: .less file dotless should compile to CSS");
+            Console.WriteLine("\toutputfile: (optional) desired filename for .css output");
+            Console.WriteLine("\t\t Defaults to inputfile.css");
+>>>>>>> 57986d4e1b45102058e055468254b85e34a41e98
             Console.WriteLine("");
             Console.WriteLine("示例:");
             Console.WriteLine("\tdotless.Compiler.exe -m -w \"-p:Rtl:forceRtlTransform=true,onlyReversePrefixedRules=true\"");
@@ -247,6 +318,14 @@ namespace dotless.Compiler
                     if (arg == "-m" || arg == "--minify")
                     {
                         configuration.MinifyOutput = true;
+                    }
+                    else if (arg == "-k" || arg == "--keep-first-comment")
+                    {
+                        configuration.KeepFirstSpecialComment = true;
+                    }
+                    else if (arg == "-d" || arg == "--debug")
+                    {
+                        configuration.Debug = true;
                     }
                     else if (arg == "-h" || arg == "--help" || arg == @"/?")
                     {
@@ -282,6 +361,10 @@ namespace dotless.Compiler
                     else if (arg.StartsWith("-r") || arg.StartsWith("--disable-url-rewriting"))
                     {
                         configuration.DisableUrlRewriting = true;
+                    }
+                    else if (arg.StartsWith("-v") || arg.StartsWith("--disable-variable-redefines"))
+                    {
+                        configuration.DisableVariableRedefines = true;
                     }
                     else if (arg.StartsWith("-p:") || arg.StartsWith("--plugin:"))
                     {

@@ -10,7 +10,7 @@ namespace dotless.Core.Parser.Tree
     using Infrastructure.Nodes;
     using Utils;
 
-    public class Color : Node, IOperable
+    public class Color : Node, IOperable, IComparable
     {
         private static readonly Dictionary<int, string> Html4ColorsReverse;
 
@@ -184,6 +184,8 @@ namespace dotless.Core.Parser.Tree
             }
         }
 
+        private bool isArgb = false;
+
         public readonly double[] RGB;
         public readonly double Alpha;
 
@@ -206,22 +208,32 @@ namespace dotless.Core.Parser.Tree
             Alpha = alpha.Normalize();
         }
 
-        public Color(string rgb)
+        public Color(string hex)
         {
-            if (rgb.Length == 6)
+            Alpha = 1;
+
+            if (hex.Length == 8)
+            {
+                isArgb = true;
+                RGB = Enumerable.Range(1, 3)
+                    .Select(i => hex.Substring(i * 2, 2))
+                    .Select(s => (double) int.Parse(s, NumberStyles.HexNumber))
+                    .ToArray();
+                Alpha = (double) int.Parse(hex.Substring(0, 2), NumberStyles.HexNumber) / 255d;
+            }
+            else if (hex.Length == 6)
             {
                 RGB = Enumerable.Range(0, 3)
-                    .Select(i => rgb.Substring(i*2, 2))
+                    .Select(i => hex.Substring(i*2, 2))
                     .Select(s => (double) int.Parse(s, NumberStyles.HexNumber))
                     .ToArray();
             }
             else
             {
-                RGB = rgb.ToCharArray()
+                RGB = hex.ToCharArray()
                     .Select(c => (double) int.Parse("" + c + c, NumberStyles.HexNumber))
                     .ToArray();
             }
-            Alpha = 1;
         }
 
         public Color(double red, double green, double blue, double alpha)
@@ -278,6 +290,18 @@ namespace dotless.Core.Parser.Tree
                 .Select(i => i > 255 ? 255 : (i < 0 ? 0 : i))
                 .ToArray();
 
+            if (Alpha == 0 && rgb[0] == 0 && rgb[1] == 0 && rgb[2] == 0)
+            {
+                env.Output.AppendFormat(CultureInfo.InvariantCulture, "transparent");
+                return;
+            }
+
+            if (isArgb)
+            {
+                env.Output.Append(ToArgb());
+                return;
+            }
+
             if (Alpha < 1.0)
             {
                 env.Output.AppendFormat(CultureInfo.InvariantCulture, "rgba({0}, {1}, {2}, {3})", rgb[0], rgb[1], rgb[2], Alpha);
@@ -309,7 +333,7 @@ namespace dotless.Core.Parser.Tree
             {
                 var operable = other as IOperable;
                 if(operable == null)
-                    throw new ParsingException(string.Format("Unable to convert right hand side of {0} to a color", op.Operator), op.Index);
+                    throw new ParsingException(string.Format("Unable to convert right hand side of {0} to a color", op.Operator), op.Location);
 
                 otherColor = operable.ToColor();
             }
@@ -343,10 +367,59 @@ namespace dotless.Core.Parser.Tree
         {
             int color;
 
+            if (keyword == "transparent")
+            {
+                return new Color(0, 0, 0, 0);
+            }
+
             if (Html4Colors.TryGetValue(keyword, out color))
                 return new Color(color);
 
             return null;
+        }
+
+        /// <summary>
+        ///  Returns in the IE ARGB format e.g ##FF001122 = rgba(0x00, 0x11, 0x22, 1)
+        /// </summary>
+        /// <returns></returns>
+        public string ToArgb()
+        {
+            var argb = 
+                new double[] { Alpha * 255 }
+                .Concat(RGB)
+                .Select(d => (int)Math.Round(d, MidpointRounding.AwayFromZero))
+                .Select(i => i > 255 ? 255 : (i < 0 ? 0 : i))
+                .ToArray();
+
+            return '#' + argb
+                 .Select(i => i.ToString("X2"))
+                 .JoinStrings("")
+                 .ToLowerInvariant();
+        }
+
+        public int CompareTo(object obj)
+        {
+            var col = obj as Color;
+
+            if (col == null)
+            {
+                return -1;
+            }
+
+            if (col.R == R && col.G == G && col.B == B && col.Alpha == Alpha)
+            {
+                return 0;
+            }
+
+            return (((256 * 3) - (col.R + col.G + col.B)) * col.Alpha) < (((256 * 3) - (R + G + B)) * Alpha) ? 1 : -1;
+        }
+
+        public static explicit operator System.Drawing.Color(Color color)
+        {
+            if (color == null)
+                throw new ArgumentNullException("color");
+
+            return System.Drawing.Color.FromArgb((int) Math.Round(color.Alpha * 255d), (int) color.R, (int) color.G, (int) color.B);
         }
     }
 }

@@ -1,3 +1,5 @@
+using System.Configuration;
+
 namespace dotless.Core.configuration
 {
     using System;
@@ -15,6 +17,7 @@ namespace dotless.Core.configuration
             var dotlessConfiguration = DotlessConfiguration.GetDefaultWeb();
 
             dotlessConfiguration.MinifyOutput = GetBoolValue(section, "minifyCss") ?? dotlessConfiguration.MinifyOutput;
+            dotlessConfiguration.Debug = GetBoolValue(section, "debug") ?? dotlessConfiguration.Debug;
             dotlessConfiguration.CacheEnabled = GetBoolValue(section, "cache") ?? dotlessConfiguration.CacheEnabled;
             dotlessConfiguration.Optimization = GetIntValue(section, "optimization") ?? dotlessConfiguration.Optimization;
             dotlessConfiguration.DisableUrlRewriting = GetBoolValue(section, "disableUrlRewriting") ?? dotlessConfiguration.DisableUrlRewriting;
@@ -22,6 +25,9 @@ namespace dotless.Core.configuration
             dotlessConfiguration.ImportAllFilesAsLess = GetBoolValue(section, "importAllFilesAsLess") ?? dotlessConfiguration.ImportAllFilesAsLess;
             dotlessConfiguration.MapPathsToWeb = GetBoolValue(section, "mapPathsToWeb") ?? dotlessConfiguration.MapPathsToWeb;
             dotlessConfiguration.HandleWebCompression = GetBoolValue(section, "handleWebCompression") ?? dotlessConfiguration.HandleWebCompression;
+            dotlessConfiguration.DisableParameters = GetBoolValue(section, "disableParameters") ?? dotlessConfiguration.DisableParameters;
+            dotlessConfiguration.KeepFirstSpecialComment = GetBoolValue(section, "keepFirstSpecialComment") ?? dotlessConfiguration.KeepFirstSpecialComment;
+            dotlessConfiguration.DisableVariableRedefines = GetBoolValue(section, "disableVariableRedefines") ?? dotlessConfiguration.DisableVariableRedefines;
 
             var logLevel = GetStringValue(section, "log") ?? "default";
             switch (logLevel.ToLowerInvariant())
@@ -50,6 +56,19 @@ namespace dotless.Core.configuration
 
             dotlessConfiguration.Logger = GetTypeValue(section, "logger");
             dotlessConfiguration.Plugins.AddRange(GetPlugins(section));
+
+            var sessionMode = GetStringValue(section, "sessionMode");
+            dotlessConfiguration.SessionMode = string.IsNullOrEmpty(sessionMode)
+                                                   ? DotlessSessionStateMode.Disabled
+                                                   : (DotlessSessionStateMode) Enum.Parse(typeof (DotlessSessionStateMode), sessionMode, true);
+            
+            dotlessConfiguration.SessionQueryParamName = GetStringValue(section, "sessionQueryParamName")
+                                                         ?? DotlessConfiguration.DEFAULT_SESSION_QUERY_PARAM_NAME;
+
+            if (dotlessConfiguration.SessionMode == DotlessSessionStateMode.QueryParam && string.IsNullOrEmpty(dotlessConfiguration.SessionQueryParamName))
+            {
+                throw new ConfigurationErrorsException("The 'sessionQueryParamName' should be not empty when sessionMode is set to 'queryParam'", section);
+            }
 
             return dotlessConfiguration;
         }

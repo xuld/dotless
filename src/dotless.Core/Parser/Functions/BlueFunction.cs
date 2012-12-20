@@ -12,6 +12,8 @@
 
         protected override Node EditColor(Color color, Number number)
         {
+            WarnNotSupportedByLessJS("blue(color, number)");
+
             var value = number.Value;
 
             if (number.Unit == "%")

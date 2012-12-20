@@ -4,9 +4,34 @@ namespace dotless.Test.Specs
     using Core.Importers;
     using Core.Parser;
     using NUnit.Framework;
+    using System.IO;
+    using System.Reflection;
+
+    class EmbeddedPathResolver : dotless.Core.Input.IPathResolver
+    {
+        public string GetFullPath(string path)
+        {
+            return Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), path);
+        }
+    }
 
     public class ImportFixture : SpecFixtureBase
     {
+        private static Parser GetEmbeddedParser(bool isUrlRewritingDisabled, bool importAllFilesAsLess, bool importCssInline)
+        {
+            var fileReader = new dotless.Core.Input.FileReader(new EmbeddedPathResolver());
+
+            return new Parser
+            {
+                Importer = new Importer(fileReader)
+                {
+                    IsUrlRewritingDisabled = isUrlRewritingDisabled,
+                    ImportAllFilesAsLess = importAllFilesAsLess,
+                    InlineCssFiles = importCssInline
+                }
+            };
+        }
+
         private static Parser GetParser()
         {
             return GetParser(false, false, false);
@@ -16,10 +41,28 @@ namespace dotless.Test.Specs
         {
             var imports = new Dictionary<string, string>();
 
-            imports["import/import-test-a.less"] = @"
-@import ""import-test-b.less"";
-@a: 20%;
+            imports[@"c:/absolute/file.less"] = @"
+.windowz .dos {
+  border: none;
+}
 ";
+            imports[@"import/error.less"] = @"
+.windowz .dos {
+  border: none;
+}
+.error_mixin {
+  .throw_error();
+}
+";
+            imports[@"import/error2.less"] = @"
+.windowz .dos {
+  border: none;
+}
+.error_mixin() {
+  .throw_error();
+}
+";
+
             imports["import/other-protocol-test.less"] = @"
 .first {
     background-image: url('http://some.com/file.gif');
@@ -28,6 +71,24 @@ namespace dotless.Test.Specs
     background-image: url('data:xxyhjgjshgjs');
 }
 ";
+            imports["import/twice/with/different/paths.less"] = @"
+@import-once ""../twice.less"";
+@import-once ""../other.less"";
+";
+
+            imports["import/twice/with/other.less"] = @"
+@import-once ""twice.less"";
+";
+
+            imports["import/twice/with/twice.less"] = @"
+body { background-color: foo; }
+";
+
+            imports["import/import-test-a.less"] = @"
+@import ""import-test-b.less"";
+@a: 20%;
+";
+
             imports["import/import-test-b.less"] =
                 @"
 @import 'import-test-c';
@@ -79,6 +140,17 @@ namespace dotless.Test.Specs
             imports["foo/bar.less"] = @"@import ""../lib/color.less"";";
             imports["lib/color.less"] = "body { background-color: foo; }";
 
+            imports["247-2.less"] = @"
+@color: red;
+text {
+  color: @color;
+}";
+            imports["247-1.less"] = @"
+#nsTwoCss {
+  .css() {
+    @import '247-2.less';
+  }
+}";
             imports["foourl.less"] = @"@import url(""foo/barurl.less"");";
             imports["foo/barurl.less"] = @"@import url(""../lib/colorurl.less"");";
             imports["lib/colorurl.less"] = "body { background-color: foo; }";
@@ -94,6 +166,23 @@ body { margin-right: @a; }";
                     IsUrlRewritingDisabled = isUrlRewritingDisabled,
                     ImportAllFilesAsLess = importAllFilesAsLess,
                     InlineCssFiles = importCssInline} };
+        }
+
+        [Test]
+        public void Test247()
+        {
+            var input = @"
+@import '247-1.less';
+#nsTwo {
+  #nsTwoCss > .css();
+}";
+            var expected = @"
+#nsTwo text {
+  color: red;
+}";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
         }
 
         [Test]
@@ -155,11 +244,10 @@ body { margin-right: @a; }";
             AssertLess(input, expected, parser);
 
             // Calling the file reader with url's with a protocolis asking for trouble
-            Assert.AreEqual(2, dictionaryReader.DoesFileExistCalls.Count, "We should not ask the file reader if a protocol file exists");
+            Assert.AreEqual(1, dictionaryReader.DoesFileExistCalls.Count, "We should not ask the file reader if a protocol file exists");
             Assert.AreEqual(1, dictionaryReader.GetFileContentsCalls.Count, "We should not ask the file reader if a protocol file exists");
 
             Assert.AreEqual(@"import/other-protocol-test.less", dictionaryReader.DoesFileExistCalls[0], "We should not ask the file reader if a protocol file exists");
-            Assert.AreEqual(@"import/other-protocol-test.less", dictionaryReader.DoesFileExistCalls[1], "We should not ask the file reader if a protocol file exists");
             Assert.AreEqual(@"import/other-protocol-test.less", dictionaryReader.GetFileContentsCalls[0], "We should not ask the file reader if a protocol file exists");
         }
 
@@ -178,6 +266,58 @@ body { margin-right: @a; }";
             // Calling the file reader with url's with a protocolis asking for trouble
             Assert.AreEqual(0, dictionaryReader.DoesFileExistCalls.Count, "We should not ask the file reader if a protocol file exists");
             Assert.AreEqual(0, dictionaryReader.GetFileContentsCalls.Count, "We should not ask the file reader if a protocol file exists");
+        }
+
+        [Test]
+        public void OtherProtocolImportTest3()
+        {
+            var input = @"
+@import url('c:/absolute/file.less');";
+            var expected = @"
+.windowz .dos {
+  border: none;
+}
+";
+            var parser = GetParser();
+    
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
+        public void ErrorInImport()
+        {
+            var input = @"
+@import ""import/error.less"";";
+
+            var parser = GetParser();
+
+            AssertError(@"
+.throw_error is undefined on line 6 in file 'import/error.less':
+  [5]: .error_mixin {
+  [6]:   .throw_error();
+       --^
+  [7]: }", input, parser);
+        }
+
+        [Test]
+        public void ErrorInImport2()
+        {
+            var input = @"
+@import ""import/error2.less"";
+.a {
+  .error_mixin();
+}";
+
+            var parser = GetParser();
+
+            AssertError(@"
+.throw_error is undefined on line 6 in file 'import/error2.less':
+  [5]: .error_mixin() {
+  [6]:   .throw_error();
+       --^
+  [7]: }
+from line 3 in file 'test.less':
+  [3]:   .error_mixin();", input, parser);
         }
 
         [Test]
@@ -333,6 +473,26 @@ body { margin-right: @a; }";
         }
 
         [Test]
+        public void ImportForMissingLessFileThrowsError4()
+        {
+            var input = @"@import ""dll://someassembly#missing.less"";";
+
+            var parser = GetParser();
+
+            AssertError("Unable to load resource [missing.less] in assembly [someassembly]", input, parser);
+        }
+
+        [Test]
+        public void ImportForMissingCssFileAsLessThrowsError()
+        {
+            var input = @"@import ""dll://someassembly#missing.css"";";
+
+            var parser = GetParser(false, true, false);
+
+            AssertError("Unable to load resource [missing.css] in assembly [someassembly]", input, parser);
+        }
+
+        [Test]
         public void ImportForMissingLessFileThrowsExceptionThatIncludesFileName()
         {
             var input = @"@import ""external1.less"";";
@@ -426,6 +586,23 @@ body {
         }
 
         [Test]
+        public void LessImportWithMediaSpecificationsConvertedWithOnce()
+        {
+            var input = @"
+@import-once url(foo.less) screen and (color) and (max-width: 600px);";
+
+            var expected = @"
+@media screen and (color) and (max-width: 600px) {
+  body {
+    background-color: foo;
+  }
+}";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
         public void LessImportWithMediaSpecificationsConvertedMultipleRequirements()
         {
             var input = @"
@@ -475,5 +652,91 @@ body {
             AssertLess(input, expected, parser);
         }
 
+        [Test]
+        public void LessImportFromEmbeddedResource()
+        {
+            var input = @"
+@import ""dll://dotless.Test.dll#dotless.Test.Resource.Embedded.less"";
+@import ""dll://dotless.Test.dll#dotless.Test.Resource.Embedded2.less"";";
+
+            var expected = @"
+#import {
+  color: red;
+}
+#import {
+  color: blue;
+}";
+            var parser = GetEmbeddedParser(false, false, false);
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
+        public void CssImportFromEmbeddedResource()
+        {
+            var input = @"
+@import ""dll://dotless.Test.dll#dotless.Test.Resource.Embedded.css"";";
+
+            var expected = @"
+.windowz .dos {
+  border: none;
+}";
+            var parser = GetEmbeddedParser(false, false, true);
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
+        public void ImportTwiceImportsTwice()
+        {
+            var input = @"
+@import ""lib/color.less"";
+@import ""lib/color.less"";";
+
+            var expected = @"
+body {
+  background-color: foo;
+}
+body {
+  background-color: foo;
+}
+";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
+        public void ImportOnceTwiceImportsOnce()
+        {
+            var input = @"
+@import-once ""lib/color.less"";
+@import-once ""lib/color.less"";";
+
+            var expected = @"
+body {
+  background-color: foo;
+}
+";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
+        }
+
+        [Test]
+        public void ImportTwiceWithDifferentRelativePathsImportsOnce()
+        {
+            var input = @"
+@import-once ""import/twice/with/different/paths.less"";";
+
+            var expected = @"
+body {
+  background-color: foo;
+}
+";
+            var parser = GetParser();
+
+            AssertLess(input, expected, parser);
+        }
     }
 }

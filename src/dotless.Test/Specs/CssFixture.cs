@@ -359,14 +359,12 @@ form[data-disabled] {
         }
 
         [Test]
-        [Ignore("Bug in dotless")]
         public void HttpUrl()
         {
             AssertExpressionUnchanged(@"url(http://), ""}"", url(""http://}"")");
         }
 
         [Test]
-        [Ignore("Bug in dotless")]
         public void HttpUrlClosingBraceOnSameLine()
         {
             var input = @"
@@ -428,6 +426,40 @@ image: url(http://); }";
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=""#333333"", endColorstr=""#000000"", GradientType=0);
 }
 ";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void DuplicatesRemoved1()
+        {
+            var input = @"
+.test {
+  background: none;
+  background: none;
+}";
+
+            var expected = @"
+.test {
+  background: none;
+}";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void DuplicatesRemoved2()
+        {
+            var input = @"
+.test {
+  background: ~""none"";
+  color: red;
+  background: none;
+}";
+
+            var expected = @"
+.test {
+  background: none;
+  color: red;
+}";
             AssertLess(input, expected);
         }
     }

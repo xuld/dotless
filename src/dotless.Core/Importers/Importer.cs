@@ -8,15 +8,29 @@ namespace dotless.Core.Importers
     using Parser;
     using Parser.Tree;
     using Utils;
+    using System.Reflection;
 
     public class Importer : IImporter
     {
+        private static readonly Regex _embeddedResourceRegex = new Regex(@"^dll://(?<Assembly>.+?)#(?<Resource>.+)$");
+
+        public static Regex EmbeddedResourceRegex { get { return _embeddedResourceRegex; } }
         public IFileReader FileReader { get; set; }
+        
+        /// <summary>
+        ///  List of successful imports
+        /// </summary>
         public List<string> Imports { get; set; }
+        
         public Func<Parser> Parser { get; set; }
         protected readonly List<string> _paths = new List<string>();
 
-        protected string CurrentDirectory
+        /// <summary>
+        ///  The raw imports of every @import node, for use with @import
+        /// </summary>
+        protected readonly List<string> _rawImports = new List<string>();
+
+        protected virtual string CurrentDirectory
         {
             get
             {
@@ -58,6 +72,30 @@ namespace dotless.Core.Importers
         }
 
         /// <summary>
+        ///  Whether a url has a protocol on it
+        /// </summary>
+        private static bool IsProtocolUrl(string url)
+        {
+            return Regex.IsMatch(url, @"^([a-zA-Z]{2,}:)");
+        }
+
+        /// <summary>
+        ///  Whether a url has a protocol on it
+        /// </summary>
+        private static bool IsNonRelativeUrl(string url)
+        {
+            return url.StartsWith(@"/") || url.StartsWith(@"~/") || Regex.IsMatch(url, @"^[a-zA-Z]:");
+        }
+
+        /// <summary>
+        /// Whether a url represents an embedded resource
+        /// </summary>
+        private static bool IsEmbeddedResource(string path)
+        {
+            return _embeddedResourceRegex.IsMatch(path);
+        }
+
+        /// <summary>
         ///  Get a list of the current paths, used to pass back in to alter url's after evaluation
         /// </summary>
         /// <returns></returns>
@@ -75,18 +113,77 @@ namespace dotless.Core.Importers
         }
 
         /// <summary>
+        ///  returns true if the import should be ignored because it is a duplicate and import-once was used
+        /// </summary>
+        /// <param name="import"></param>
+        /// <returns></returns>
+        protected bool CheckIgnoreImport(Import import)
+        {
+            return CheckIgnoreImport(import, import.Path);
+        }
+
+        /// <summary>
+        ///  returns true if the import should be ignored because it is a duplicate and import-once was used
+        /// </summary>
+        /// <param name="import"></param>
+        /// <returns></returns>
+        protected bool CheckIgnoreImport(Import import, string path)
+        {
+            if (_rawImports.Contains(path, StringComparer.InvariantCultureIgnoreCase))
+            {
+                return import.IsOnce;
+            }
+            _rawImports.Add(path);
+
+            return false;
+        }
+
+        /// <summary>
         ///  Imports the file inside the import as a dot-less file.
         /// </summary>
         /// <param name="import"></param>
         /// <returns> The action for the import node to process</returns>
         public virtual ImportAction Import(Import import)
         {
-          //  var file = GetAdjustedFilePath(import.Path, _paths);
-            var file = Path.GetFullPath(Path.Combine(_currentDirectory, import.Path));
-            if (!ImportAllFilesAsLess && import.Path.EndsWith(".css"))
+<<<<<<< .mine          //  var file = GetAdjustedFilePath(import.Path, _paths);
+=======            // if the import is protocol'd (e.g. http://www.opencss.com/css?blah) then leave the import alone
+>>>>>>> .theirs            var file = Path.GetFullPath(Path.Combine(_currentDirectory, import.Path));
+            if (IsProtocolUrl(import.Path) && !IsEmbeddedResource(import.Path))
+<<<<<<< .mine=======            {
+                if (import.Path.EndsWith(".less"))
+                {
+                    throw new FileNotFoundException(".less cannot import non local less files.", import.Path);
+                }
+
+                if (CheckIgnoreImport(import))
+                {
+                    return ImportAction.ImportNothing;
+                }
+
+                return ImportAction.LeaveImport;
+            }
+
+            var file = import.Path;
+            
+            if (!IsNonRelativeUrl(file)) 
             {
-                if (InlineCssFiles && ImportCssFileContents(file, import))
-                    return ImportAction.ImportCss;
+                file = GetAdjustedFilePath(import.Path, _paths);
+            }
+
+>>>>>>> .theirs            if (CheckIgnoreImport(import, file))
+            {
+                return ImportAction.ImportNothing;
+            }
+
+            if (!ImportAllFilesAsLess && import.Path.EndsWith(".css") && !import.Path.EndsWith(".less.css"))
+            {
+                if (InlineCssFiles)
+                {
+                    if (IsEmbeddedResource(import.Path) && ImportEmbeddedCssContents(file, import))                         
+                        return ImportAction.ImportCss;
+                    if (ImportCssFileContents(file, import))
+                        return ImportAction.ImportCss;
+                }
 
                 return ImportAction.LeaveImport;
             }
@@ -117,11 +214,13 @@ namespace dotless.Core.Importers
         /// <summary>
         ///  Imports a less file and puts the root into the import node
         /// </summary>
-        protected bool ImportLessFile(string file, Import import)
+        protected bool ImportLessFile(string lessPath, Import import)
         {
-
+<<<<<<< .mine
             if(Imports.Contains(file)) {
-                import.InnerRoot = Ruleset.Empty;
+=======            string contents, file = null;
+            if (IsEmbeddedResource(lessPath))
+>>>>>>> .theirs                import.InnerRoot = Ruleset.Empty;
                 return true;
             }
 
@@ -130,22 +229,34 @@ namespace dotless.Core.Importers
 
             if (!FileReader.DoesFileExist(file) && !file.EndsWith(".less"))
             {
-                file = file + ".less";
+                contents = ResourceLoader.GetResource(lessPath, FileReader, out file);
+                if (contents == null) return false;
             }
-
-            if (!FileReader.DoesFileExist(file))
+            else
             {
-                return false;
-            }
+                bool fileExists = FileReader.DoesFileExist(lessPath);
+                if (!fileExists && !lessPath.EndsWith(".less"))
+                {
+                    lessPath += ".less";
+                    fileExists = FileReader.DoesFileExist(lessPath);
+                }
 
-            var contents = FileReader.GetFileContents(file);
+                if (!fileExists) return false;
+
+                contents = FileReader.GetFileContents(lessPath);
+
+                file = lessPath;
+            }
 
             _paths.Add(Path.GetDirectoryName(import.Path));
 
             try
             {
-                Imports.Add(file);
-                import.InnerRoot = Parser().Parse(contents, file);
+                if (!string.IsNullOrEmpty(file))
+                {
+                    Imports.Add(file);
+                }
+                import.InnerRoot = Parser().Parse(contents, lessPath);
             }
             catch
             {
@@ -161,6 +272,20 @@ namespace dotless.Core.Importers
         }
 
         /// <summary>
+        ///  Imports a css file from an embedded resource and puts the contents into the import node
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="import"></param>
+        /// <returns></returns>
+        private bool ImportEmbeddedCssContents(string file, Import import)
+        {
+            string content = ResourceLoader.GetResource(file, FileReader, out file);
+            if (content == null) return false;
+            import.InnerContent = content;
+            return true;
+        }
+
+        /// <summary>
         ///  Imports a css file and puts the contents into the import node
         /// </summary>
         protected bool ImportCssFileContents(string file, Import import)
@@ -171,6 +296,7 @@ namespace dotless.Core.Importers
             }
 
             import.InnerContent = FileReader.GetFileContents(file);
+            Imports.Add(file);
 
             return true;
         }
@@ -187,6 +313,70 @@ namespace dotless.Core.Importers
             }
 
             return url;
+        }
+    }
+
+    /// <summary>
+    /// Utility class used to retrieve the content of an embedded resource using a separate app domain in order to unload the assembly when done.
+    /// </summary>
+    class ResourceLoader : MarshalByRefObject
+    {
+        private byte[] _fileContents;
+        private string _resourceName;
+        private string _resourceContent;
+
+        /// <summary>
+        /// Gets the text content of an embedded resource.
+        /// </summary>
+        /// <param name="file">The path in the form: dll://AssemblyName/ResourceName</param>
+        /// <returns>The content of the resource</returns>
+        public static string GetResource(string file, IFileReader fileReader, out string fileDependency)
+        {
+            fileDependency = null;
+
+            var match = Importer.EmbeddedResourceRegex.Match(file);
+            if (!match.Success) return null;
+
+            var loader = new ResourceLoader();
+            loader._resourceName = match.Groups["Resource"].Value;
+
+            try
+            {
+                fileDependency = match.Groups["Assembly"].Value;
+
+                if (!fileReader.DoesFileExist(fileDependency))
+                {
+                    throw new FileNotFoundException("Unable to locate assembly file [" + fileDependency + "]");
+                }
+
+                loader._fileContents = fileReader.GetBinaryFileContents(fileDependency);
+
+                var domainSetup = new AppDomainSetup();
+                domainSetup.ApplicationBase = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var domain = AppDomain.CreateDomain("LoaderDomain", null, domainSetup);
+                domain.DoCallBack(loader.LoadResource);
+                AppDomain.Unload(domain);
+            }
+            catch (Exception)
+            {
+                throw new FileNotFoundException("Unable to load resource [" + loader._resourceName + "] in assembly [" + fileDependency + "]");
+            }
+            finally
+            {
+                loader._fileContents = null;
+            }
+
+            return loader._resourceContent;
+        }
+
+        // Runs in the separate app domain
+        private void LoadResource()
+        {
+            var assembly = Assembly.Load(_fileContents);
+            using (var stream = assembly.GetManifestResourceStream(_resourceName))
+            {
+                _resourceContent = new StreamReader(stream).ReadToEnd();
+            }
         }
     }
 }

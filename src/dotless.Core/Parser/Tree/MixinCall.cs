@@ -28,7 +28,7 @@ namespace dotless.Core.Parser.Tree
             var closures = env.FindRulesets(Selector);
 
             if(closures == null)
-                throw new ParsingException(Selector.ToCSS(env).Trim() + " is undefined", Index);
+                throw new ParsingException(Selector.ToCSS(env).Trim() + " is undefined", Location);
 
             env.Rule = this;
 
@@ -60,7 +60,7 @@ namespace dotless.Core.Parser.Tree
                     }
                     catch (ParsingException e)
                     {
-                        throw new ParsingException(e.Message, e.Index, Index);
+                        throw new ParsingException(e.Message, e.Location, Location);
                     }
                 }
                 else
@@ -83,8 +83,8 @@ namespace dotless.Core.Parser.Tree
             {
                 var message = String.Format("No matching definition was found for `{0}({1})`",
                                             Selector.ToCSS(env).Trim(),
-                                            StringExtensions.JoinStrings(Arguments.Select(a => a.Value.ToCSS(env)), ", "));
-                throw new ParsingException(message, Index);
+                                            Arguments.Select(a => a.Value.ToCSS(env)).JoinStrings(env.Compress ? "," : ", "));
+                throw new ParsingException(message, Location);
             }
 
             if (Important)
@@ -98,14 +98,9 @@ namespace dotless.Core.Parser.Tree
                     {
                         var valueNode = r.Value;
                         var value = valueNode as Value;
-                        if (value != null)
-                        {
-                            value = new Value(value.Values, "!important").ReducedFrom<Value>(value);
-                        }
-                        else
-                        {
-                            value = new Value(new NodeList() { valueNode }, "!important");
-                        }
+                        value = value != null
+                                    ? new Value(value.Values, "!important").ReducedFrom<Value>(value)
+                                    : new Value(new NodeList {valueNode}, "!important");
 
                         importantRules.Add((new Rule(r.Name, value)).ReducedFrom<Rule>(r));
                     }
@@ -117,10 +112,8 @@ namespace dotless.Core.Parser.Tree
 
                 return importantRules;
             }
-            else
-            {
-                return rules;
-            }
+
+            return rules;
         }
 
         public override void Accept(IVisitor visitor)

@@ -34,6 +34,16 @@ namespace dotless.Test.Specs.Functions
         }
 
         [Test]
+        public void TestEditAlphaWarning()
+        {
+            var alphaWarning = "alpha(color, number) is not supported by less.js, so this will work but not compile with other less implementations." + 
+                " You may want to consider using fadein(color, number) or the opposite fadeout(color, number), which does the same thing and is supported.";
+
+            AssertExpressionLogMessage(alphaWarning, "alpha(rgba(0, 0, 0, 0.5), .25)");
+            AssertExpressionNoLogMessage(alphaWarning, "fadein(rgba(0, 0, 0, 0.5), .25)");
+        }
+
+        [Test]
         public void TestEditAlpha()
         {
             // Opacify / Fade In
@@ -48,9 +58,18 @@ namespace dotless.Test.Specs.Functions
             AssertExpression("rgba(0, 0, 0, 0.3)", "alpha(rgba(0, 0, 0, 0.5), -.2)");
             AssertExpression("rgba(0, 0, 0, 0.1)", "alpha(rgba(0, 0, 0, 0.2), -.1)");
             AssertExpression("rgba(0, 0, 0, 0.2)", "alpha(rgba(0, 0, 0, 0.5), -.3px)");
-            AssertExpression("rgba(0, 0, 0, 0)", "alpha(rgba(0, 0, 0, 0.2), -0.2)");
-            AssertExpression("rgba(0, 0, 0, 0)", "alpha(rgba(0, 0, 0, 0.2), -1)");
+            AssertExpression("transparent", "alpha(rgba(0, 0, 0, 0.2), -0.2)");
+            AssertExpression("transparent", "alpha(rgba(0, 0, 0, 0.2), -1)");
             AssertExpression("rgba(0, 0, 0, 0.2)", "alpha(rgba(0, 0, 0, 0.2), 0)");
+        }
+
+        [Test]
+        public void TestEditAlphaFade()
+        {
+            AssertExpression("rgba(0, 0, 0, 0.25)", "fade(rgba(0, 0, 0, 0.5), .25)");
+            AssertExpression("black", "fade(rgba(0, 0, 0, 0.5), 1)");
+            AssertExpression("rgba(255, 255, 255, 0.1)", "fade(white, .1)");
+            AssertExpression("white", "fade(white, 1.2)");
         }
 
         [Test]
@@ -68,8 +87,8 @@ namespace dotless.Test.Specs.Functions
             AssertExpression("rgba(0, 0, 0, 0.3)", "fade-out(rgba(0, 0, 0, 0.5), .2)");
             AssertExpression("rgba(0, 0, 0, 0.1)", "fade-out(rgba(0, 0, 0, 0.2), .1)");
             AssertExpression("rgba(0, 0, 0, 0.2)", "fade-out(rgba(0, 0, 0, 0.5), .3px)");
-            AssertExpression("rgba(0, 0, 0, 0)", "fade-out(rgba(0, 0, 0, 0.2), 0.2)");
-            AssertExpression("rgba(0, 0, 0, 0)", "fade-out(rgba(0, 0, 0, 0.2), 1)");
+            AssertExpression("transparent", "fade-out(rgba(0, 0, 0, 0.2), 0.2)");
+            AssertExpression("transparent", "fade-out(rgba(0, 0, 0, 0.2), 1)");
             AssertExpression("rgba(0, 0, 0, 0.2)", "fade-out(rgba(0, 0, 0, 0.2), 0)");
         }
 

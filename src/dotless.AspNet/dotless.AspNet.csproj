@@ -31,6 +31,12 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>..\dotless-open-source.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Practices.ServiceLocation">
       <HintPath>..\..\lib\Pandora\Microsoft.Practices.ServiceLocation.dll</HintPath>
@@ -53,7 +59,10 @@
     <Compile Include="Input\AspRelativePathResolver.cs" />
     <Compile Include="Input\AspServerPathResolver.cs" />
     <Compile Include="Input\VirtualFileReader.cs" />
+    <Compile Include="LessWeb.cs" />
     <Compile Include="LessCssHttpHandler.cs" />
+    <Compile Include="LessCssHttpHandlerBase.cs" />
+    <Compile Include="LessCssHttpHandlerFactory.cs" />
     <Compile Include="Loggers\AspNetTraceLogger.cs" />
     <Compile Include="Loggers\AspResponseLogger.cs" />
     <Compile Include="Parameters\QueryStringParameterSource.cs" />

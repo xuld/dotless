@@ -5,6 +5,14 @@ namespace dotless.Test.Specs.Functions
     public class RedFixture : SpecFixtureBase
     {
         [Test]
+        public void TestRedInfo()
+        {
+            var redInfo1 = "red(color, number) is not supported by less.js, so this will work but not compile with other less implementations.";
+
+            AssertExpressionLogMessage(redInfo1, "red(#123456, 10)");
+        }
+
+        [Test]
         public void TestRed()
         {
             AssertExpression("18", "red(#123456)");

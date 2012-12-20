@@ -4,6 +4,7 @@ namespace dotless.Core.Parser.Tree
     using Infrastructure;
     using Infrastructure.Nodes;
     using Plugins;
+    using System.Text.RegularExpressions;
 
     public class Rule : Node
     {
@@ -22,7 +23,7 @@ namespace dotless.Core.Parser.Tree
         {
             Name = name;
             Value = value;
-            Variable = name != null ? name[0] == '@' : false;
+            Variable = !string.IsNullOrEmpty(name) && name[0] == '@';
             IsSemiColonRequired = true;
             Variadic = variadic;
         }
@@ -33,7 +34,7 @@ namespace dotless.Core.Parser.Tree
 
             if (Value == null)
             {
-                throw new ParsingException("No value found for rule " + Name, Index);
+                throw new ParsingException("No value found for rule " + Name, Location);
             }
 
             var rule = new Rule(Name, Value.Evaluate(env)).ReducedFrom<Rule>(this);
@@ -50,11 +51,22 @@ namespace dotless.Core.Parser.Tree
             if (Variable)
                 return;
 
+            var value = Value;
+
             env.Output
                 .Append(Name)
                 .Append(PostNameComments)
-                .Append(env.Compress ? ":" : ": ")
-                .Append(Value);
+                .Append(env.Compress ? ":" : ": ");
+
+            env.Output.Push()
+                .Append(value);
+
+            if (env.Compress)
+            {
+                env.Output.Reset(Regex.Replace(env.Output.ToString(), @"(\s)+", " ").Replace(", ", ","));
+            }
+
+            env.Output.PopAndAppend();
 
             if (IsSemiColonRequired)
             {

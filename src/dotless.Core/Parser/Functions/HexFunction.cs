@@ -9,8 +9,10 @@ namespace dotless.Core.Parser.Functions
     {
         protected override Node Eval(Env env, Number number, Node[] args)
         {
+            WarnNotSupportedByLessJS("hex(number)");
+
             if (!string.IsNullOrEmpty(number.Unit))
-                throw new ParsingException(string.Format("Expected unitless number in function 'hex', found {0}", number.ToCSS(env)), number.Index);
+                throw new ParsingException(string.Format("Expected unitless number in function 'hex', found {0}", number.ToCSS(env)), number.Location);
 
             number.Value = Clamp(number.Value, 255, 0);
 

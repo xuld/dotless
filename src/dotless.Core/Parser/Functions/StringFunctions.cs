@@ -13,7 +13,9 @@ namespace dotless.Core.Parser.Functions
     {
         protected override Node Evaluate(Env env)
         {
-            Guard.ExpectMaxArguments(1, Arguments.Count, this, Index);
+            Guard.ExpectMaxArguments(1, Arguments.Count, this, Location);
+
+            WarnNotSupportedByLessJS("e(string)", @"~""""");
 
             if (Arguments.Count == 0)
                 return new TextNode("");
@@ -30,6 +32,8 @@ namespace dotless.Core.Parser.Functions
     {
         protected override Node Evaluate(Env env)
         {
+            WarnNotSupportedByLessJS("%(string, args...)", @"~"""" and string interpolation");
+
             if (Arguments.Count == 0)
                 return new Quoted("", false);
 
@@ -37,7 +41,7 @@ namespace dotless.Core.Parser.Functions
 
             var str = stringValue(Arguments[0]);
 
-            var args = Arguments.Skip(1).ToArray();
+            var args = Arguments.Skip(1).ToList();
             var i = 0;
 
             MatchEvaluator replacement = m =>

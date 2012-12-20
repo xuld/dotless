@@ -11,9 +11,8 @@
         public Ruleset Ruleset { get; set; }
 
         public Media(Node features, NodeList rules)
+            : this(features, new Ruleset(GetEmptySelector(), rules))
         {
-            Features = features;
-            Ruleset = new Ruleset(GetEmptySelector(), rules);
         }
 
         public Media(Node features, Ruleset ruleset)
@@ -24,7 +23,7 @@
 
         public static NodeList<Selector> GetEmptySelector()
         {
-            return new NodeList<Selector>() { new Selector(new NodeList<Element>() { new Element(new Combinator("&"), "") }) };
+            return new NodeList<Selector>() { new Selector(new NodeList<Element>() { new Element(new Combinator(""), "&") }) };
         }
 
         public override void Accept(Plugins.IVisitor visitor)
@@ -185,6 +184,15 @@
             }
 
             return returner;
+        }
+
+        /// <summary>
+        ///  Copies selectors to media statements currently bubbling up, so they are not lost
+        /// </summary>
+        /// <param name="selectors"></param>
+        public void BubbleSelectors(NodeList<Selector> selectors)
+        {
+            Ruleset = new Ruleset(new NodeList<Selector>(selectors), new NodeList() { Ruleset });
         }
 
         public override void AppendCSS(Env env, Context ctx)

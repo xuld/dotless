@@ -425,6 +425,76 @@ body {
         }
 
         [Test]
+        public void MediaBubbling6()
+        {
+            var input = @"
+@media screen {
+  .sidebar {
+    width: 300px;
+    @media (orientation: landscape) {
+      width: 500px;
+    }
+  }
+}";
+            var expected = @"
+@media screen {
+  .sidebar {
+    width: 300px;
+  }
+}
+@media screen and (orientation: landscape) {
+  .sidebar {
+    width: 500px;
+  }
+}";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void MediaBubbling7()
+        {
+            var input = @"
+@media a {
+  .first {
+    @media b {
+      .second {
+        .third {
+          width: 300px;
+          @media c {
+            width: 500px;
+          }
+        }
+        .fourth {
+          width: 3;
+        }
+      }
+    }
+  }
+}";
+            var expected = @"
+@media a {
+  
+}
+@media a and b {
+  .first .second .third {
+    width: 300px;
+  }
+  .first .second .fourth {
+    width: 3;
+  }
+}
+@media b and a and c {
+  .first .second .third {
+    width: 500px;
+  }
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
         public void MediaMixin1()
         {
             var input = @"
@@ -497,6 +567,39 @@ body {
 }
 ";
 
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void MediaUsesDpiUnit()
+        {
+            var input = @"
+@media handheld and (min-resolution: 200dpi) {
+  background: red;
+}
+";
+
+            AssertLessUnchanged(input);
+        }
+
+        [Test]
+        public void MixinCallNotDefinition()
+        {
+            var input = @"
+.mixin_def(@url, @position){
+    background-image: @url;
+    background-position: @position;
+}
+.error{
+  @s: ""/"";
+  .mixin_def( ""@{s}a.png"", center center);
+}";
+            var expected = @"
+.error {
+  background-image: ""/a.png"";
+  background-position: center center;
+}
+";
             AssertLess(input, expected);
         }
     }

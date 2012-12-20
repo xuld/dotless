@@ -1499,5 +1499,50 @@ input[type=""submit""].lefticon.icon24-tick.extralarge.fancy:hover {
 ";
             AssertLess(input, expected);
         }
+
+        [Test]
+        public void DuplicatesRemovedFromMixinCall()
+        {
+            var input = @"
+.test() {
+  background: none;
+  color: red;
+  background: none;
+}
+
+.test2 {
+  .test();
+  .test;
+}";
+
+            var expected = @"
+.test2 {
+  background: none;
+  color: red;
+}";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void TestMixinCallIncorrectlyRecognisedLessJsBug901()
+        {
+            var input = @"
+.mixin_def(@url, @position){
+    background-image: @url;
+    background-position: @position;
+}
+.error{
+  @s: ""/"";
+  .mixin_def( ""@{s}a.png"", center center);
+}";
+            var expected = @"
+.error {
+  background-image: ""/a.png"";
+  background-position: center center;
+}
+";
+
+            AssertLess(input, expected);
+        }
     }
 }

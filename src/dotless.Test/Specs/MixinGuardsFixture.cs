@@ -503,5 +503,234 @@ namespace dotless.Test.Specs
 
             AssertLess(input, expected);
         }
+
+        [Test]
+        public void ComparisonAgainstFunctionCall()
+        {
+            var input =
+                @"
+.light (@a) when (alpha(@a) > 0.5) {
+  color: solid @a;
+}
+.light (@a) when (0.5 > alpha(@a)) {
+  color: trans @a;
+}
+
+.light1 { 
+  .light(red);
+  .light(transparent); 
+}
+";
+
+            var expected =
+                @"
+.light1 {
+  color: solid red;
+  color: trans transparent;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ColorCompare()
+        {
+            var input =
+                @"
+.light (@a) when (@a = transparent) {
+  color: red;
+}
+.light (@a) when (@a < grey) {
+  color: white;
+}
+.light (@a) when (@a = grey) {
+  color: grey;
+}
+.light (@a) when (@a > grey) {
+  color: black;
+}
+
+.light1 { .light(black) }
+.light2 { .light(#eee) }
+.light3 { .light(grey) }
+";
+
+            var expected =
+                @"
+.light1 {
+  color: black;
+}
+.light2 {
+  color: white;
+}
+.light3 {
+  color: grey;
+}";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void ColorCompareAlpha()
+        {
+            var input =
+                @"
+.light (@a) when (@a = transparent) {
+  color: red;
+}
+.light (@a) when (@a < grey) {
+  color: white;
+}
+.light (@a) when (@a = grey) {
+  color: grey;
+}
+.light (@a) when (@a > grey) {
+  color: black;
+}
+
+.light1 { .light(transparent) }
+.light2 { .light(alpha(black, -0.1)) }
+.light3 { .light(alpha(black, -0.9)) }
+
+";
+
+            var expected =
+                @"
+.light1 {
+  color: red;
+  color: white;
+}
+.light2 {
+  color: black;
+}
+.light3 {
+  color: white;
+}";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void StringCompare()
+        {
+            var input =
+                @"
+.light (@a) when (@a = ""test1"") {
+  color: red;
+}
+.light (@a) when not (@a = ""test2"") {
+  color: white;
+}
+.light (@a) when (""test1"" = @a) {
+  color: grey;
+}
+.light (@a) when not (""test2"" = @a) {
+  color: black;
+}
+.light (@a) when (~""test1"" = @a) {
+  color: blue;
+}
+
+.light1 { .light(""test1"") }
+.light2 { .light(""test2"") }
+";
+
+            var expected =
+                @"
+.light1 {
+  color: red;
+  color: white;
+  color: grey;
+  color: black;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void KeywordCompare()
+        {
+            var input =
+                @"
+.light (@a) when (@a = block) {
+  color: red;
+}
+.light (@a) when not (@a = inline) {
+  color: white;
+}
+.light (@a) when (~""inline"" = @a) {
+  color: blue;
+}
+.light (@a) when (@a = ~""inline"") {
+  color: pink;
+}
+
+.light1 { .light(inline) }
+.light2 { .light(block) }
+";
+
+            var expected =
+                @"
+.light1 {
+  color: blue;
+  color: pink;
+}
+.light2 {
+  color: red;
+  color: white;
+}
+";
+
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void TestCompareArgsInGuard()
+        {
+            var input = @"
+.mixin(@c: bar, @a: red, @b: blue) when (@a = @b) {
+  foo: @c;
+}
+.test {
+  .mixin(@b:red, @a:red);
+}";
+            var expected = @"
+.test {
+  foo: bar;
+}
+";
+            AssertLess(input, expected);
+        }
+
+        [Test]
+        public void GuardsVariableBug1()
+        {
+            var input = @"
+.backgroundColorFn (@a) when (lightness(@a) >= 50%) {
+    color:          black;
+}
+.backgroundColorFn (@a) when (lightness(@a) < 50%) {
+    color:          white;
+}
+
+.test1 {
+    .backgroundColorFn(red);
+}
+
+@calculatedVariable: 1em;
+
+.testClass { font-size: @calculatedVariable; }";
+            var expected = @"
+.test1 {
+  color: black;
+}
+.testClass {
+  font-size: 1em;
+}";
+
+            AssertLess(input, expected);
+        }
     }
 }

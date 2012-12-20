@@ -209,10 +209,10 @@ namespace dotless.Test.Specs
   to {
     font-size: 15px;
   }
-  from,to {
+  from, to {
     font-size: 12px;
   }
-  0%,100% {
+  0%, 100% {
     font-size: 12px;
   }
 }
@@ -240,6 +240,22 @@ namespace dotless.Test.Specs
 #box {
   animation: rotate-this 2s infinite;
 }";
+            AssertLessUnchanged(input);
+        }
+
+        [Test]
+        public void KeyFrameDirective4()
+        {
+            var input = @"
+@keyframes rotate-this {
+  0%, 1%, 10%, 80%, to {
+    -webkit-transform: scale(0.6) rotate(0deg);
+  }
+  50% {
+    -webkit-transform: scale(0.6) rotate(180deg);
+  }
+}
+";
             AssertLessUnchanged(input);
         }
 
@@ -406,7 +422,7 @@ a ~ p {
         {
             // see http://dev.w3.org/csswg/css3-values/
 
-            List<string> units = new List<string>() { "em", "ex", "ch", "rem", "vw", "vh", "vm", "cm", "mm", "%", "in", "pt", "px", "pc", "deg", "grad", "rad", "s", "ms", "fr", "gr", "Hz", "kHz" };
+            List<string> units = new List<string>() { "em", "ex", "ch", "rem", "vw", "vh", "vmin", "vm", "cm", "mm", "%", "in", "pt", "px", "pc", "deg", "grad", "rad", "s", "ms", "fr", "gr", "Hz", "kHz", "dpcm", "dppx" };
 
             foreach (string unit in units)
             {
